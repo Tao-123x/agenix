@@ -41,3 +41,26 @@ constraints:
 entry:
   skill: workflow.fix_and_validate
 ```
+
+## Runtime v0.1 capsule layout
+
+`agenix build <skill-dir> -o <artifact>` produces a gzip-compressed tar artifact
+with this layout:
+
+```text
+manifest.yaml
+files/...
+agenix.lock.json
+```
+
+Rules:
+
+- `manifest.yaml` is copied from the skill directory root.
+- `files/...` contains other skill directory files with their relative paths
+  preserved.
+- `.DS_Store`, `.agenix`, `.pytest_cache`, `__pycache__`, and `*.pyc` files are
+  excluded.
+- `agenix.lock.json` records artifact version, skill name/version, manifest
+  digest, source file digests, creation time, and artifact digest.
+- `agenix inspect <artifact>` reads only the capsule and prints skill identity,
+  file count, digest, and artifact path.

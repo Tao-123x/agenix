@@ -83,6 +83,18 @@ The first command should fail because the fixture starts broken. The `agenix run
 command fixes it through the runtime `fs.write` tool, records every tool and
 verifier event in a JSON trace, and only reports success after verifier pass.
 
+Build and inspect a portable capsule:
+
+```bash
+go run ./cmd/agenix build examples/repo.fix_test_failure -o repo.fix_test_failure.agenix
+go run ./cmd/agenix inspect repo.fix_test_failure.agenix
+```
+
+The artifact is a gzip-compressed tar capsule with `manifest.yaml`,
+`files/...`, and `agenix.lock.json`. The lockfile records the skill identity,
+source file digests, and artifact digest so the capsule can be moved and
+inspected without trusting the original directory layout.
+
 ## Roadmap & Definition of Done (DoD)
 
 ### Phase 0: Specs (DoD)

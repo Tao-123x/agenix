@@ -20,6 +20,26 @@ func run(args []string) error {
 		return usage()
 	}
 	switch args[0] {
+	case "build":
+		if len(args) != 4 || args[2] != "-o" {
+			return usage()
+		}
+		result, err := agenix.BuildArtifact(agenix.BuildOptions{SkillDir: args[1], OutputPath: args[3]})
+		if err != nil {
+			return err
+		}
+		fmt.Println(formatArtifactSummary(result))
+		return nil
+	case "inspect":
+		if len(args) != 2 {
+			return usage()
+		}
+		result, err := agenix.InspectArtifact(args[1])
+		if err != nil {
+			return err
+		}
+		fmt.Println(formatArtifactSummary(result))
+		return nil
 	case "run":
 		if len(args) != 2 {
 			return usage()
@@ -59,9 +79,13 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix run <manifest> | verify <trace> | replay <trace>")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> | verify <trace> | replay <trace>")
 }
 
 func formatRunResult(status, runID, tracePath string, changedFiles, verifierSummary []string) string {
 	return fmt.Sprintf("status=%s run_id=%s trace=%s changed_files=%s verifiers=%s", status, runID, tracePath, strings.Join(changedFiles, ","), strings.Join(verifierSummary, ","))
+}
+
+func formatArtifactSummary(summary agenix.ArtifactSummary) string {
+	return fmt.Sprintf("skill=%s version=%s files=%d digest=%s artifact=%s", summary.Skill, summary.Version, summary.FileCount, summary.Digest, summary.Path)
 }

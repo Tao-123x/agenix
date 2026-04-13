@@ -33,3 +33,58 @@ func TestFormatRunResultIncludesVerifierSummary(t *testing.T) {
 		t.Fatalf("missing verifier summary: %s", out)
 	}
 }
+
+func TestCLIBuildAndInspect(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+inputs:
+  repo_path: fixture
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+	if err := os.WriteFile(filepath.Join(skillDir, "manifest.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "README.md"), []byte("# demo\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := filepath.Join(root, "skill.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+	if !strings.Contains(string(buildOut), "artifact=") || !strings.Contains(string(buildOut), "digest=sha256:") {
+		t.Fatalf("unexpected build output: %s", buildOut)
+	}
+
+	inspectOut, err := exec.Command("go", "run", ".", "inspect", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("inspect failed: %v\n%s", err, inspectOut)
+	}
+	if !strings.Contains(string(inspectOut), "skill=repo.fix_test_failure") || !strings.Contains(string(inspectOut), "files=2") {
+		t.Fatalf("unexpected inspect output: %s", inspectOut)
+	}
+}

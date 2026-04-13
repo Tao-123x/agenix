@@ -86,6 +86,20 @@
 - Registry naming & integrity
 - Provenance
 
+### Reference artifact layout (v0.1)
+
+The reference runtime can build a local capsule with:
+
+```text
+manifest.yaml
+files/...
+agenix.lock.json
+```
+
+The capsule is a gzip-compressed tar file. `agenix.lock.json` is the minimum
+provenance record for v0.1: artifact version, skill identity, manifest digest,
+source file digests, creation timestamp, and artifact digest.
+
 ## 14. Reference Demo
 
 - `repo.fix_test_failure`
