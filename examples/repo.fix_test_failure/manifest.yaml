@@ -1,0 +1,48 @@
+apiVersion: agenix/v0.1
+kind: Skill
+
+name: repo.fix_test_failure
+version: 0.1.0
+description: Locate a failing pytest case, patch the demo code, and verify the fix.
+
+tools:
+  - fs
+  - shell
+  - git
+
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+  shell:
+    allow:
+      - run: ["python3", "-m", "pytest", "-q"]
+      - run: ["git", "status", "--short"]
+      - run: ["git", "diff", "--", "."]
+
+inputs:
+  repo_path: fixture
+
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+
+verifiers:
+  - type: command
+    name: run_tests
+    cmd: "python3 -m pytest -q"
+    cwd: ${repo_path}
+    success:
+      exit_code: 0
+
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+
+recovery:
+  strategy: checkpoint
+  intervals: 5
