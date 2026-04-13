@@ -64,3 +64,7 @@ Rules:
   digest, source file digests, creation time, and artifact digest.
 - `agenix inspect <artifact>` reads only the capsule and prints skill identity,
   file count, digest, and artifact path.
+- `agenix run <artifact>` materializes `manifest.yaml` at the workspace root and
+  restores `files/...` without the `files/` prefix before running the manifest.
+  The workspace is kept under the run directory so trace verification can replay
+  against the materialized manifest.

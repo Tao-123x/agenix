@@ -33,14 +33,25 @@ type EscapeAdapter struct {
 }
 
 func Run(options RunOptions) (RunResult, error) {
-	manifest, err := LoadManifest(options.ManifestPath)
+	runID := newRunID()
+	manifestPath := options.ManifestPath
+	if isArtifactTarget(manifestPath) {
+		workspaceDir := filepath.Join(runRoot(options.RunDir), runID, "workspace")
+		materializedManifest, _, err := MaterializeArtifact(manifestPath, workspaceDir)
+		if err != nil {
+			return RunResult{RunID: runID, TracePath: tracePathFor(options.RunDir, runID), Status: "failed"}, err
+		}
+		manifestPath = materializedManifest
+	}
+	manifest, err := LoadManifest(manifestPath)
 	if err != nil {
 		return RunResult{}, err
 	}
 	trace := NewTrace(manifest.Name, fakeModelProfile, manifest.Permissions)
-	trace.ManifestPath = options.ManifestPath
-	tracePath := tracePathFor(options.RunDir, trace.RunID)
-	result := RunResult{RunID: trace.RunID, TracePath: tracePath}
+	trace.RunID = runID
+	trace.ManifestPath = manifestPath
+	tracePath := tracePathFor(options.RunDir, runID)
+	result := RunResult{RunID: runID, TracePath: tracePath}
 
 	policy, err := NewPolicy(manifest.Permissions)
 	if err != nil {
@@ -161,10 +172,18 @@ func Replay(path string) (ReplaySummary, error) {
 }
 
 func tracePathFor(runDir, runID string) string {
+	return filepath.Join(runRoot(runDir), runID, "trace.json")
+}
+
+func runRoot(runDir string) string {
 	if runDir == "" {
-		runDir = filepath.Join(".agenix", "runs")
+		return filepath.Join(".agenix", "runs")
 	}
-	return filepath.Join(runDir, runID, "trace.json")
+	return runDir
+}
+
+func isArtifactTarget(path string) bool {
+	return strings.HasSuffix(path, ".agenix")
 }
 
 func verifierSummary(trace *Trace) []string {

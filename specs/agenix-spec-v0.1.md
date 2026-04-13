@@ -100,6 +100,11 @@ The capsule is a gzip-compressed tar file. `agenix.lock.json` is the minimum
 provenance record for v0.1: artifact version, skill identity, manifest digest,
 source file digests, creation timestamp, and artifact digest.
 
+When running a capsule, the runtime materializes it into the run workspace:
+`manifest.yaml` remains at the workspace root, and `files/...` entries are
+restored without the `files/` prefix. The workspace remains available for trace
+verification.
+
 ## 14. Reference Demo
 
 - `repo.fix_test_failure`

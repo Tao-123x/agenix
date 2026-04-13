@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -43,6 +44,43 @@ func TestRuntimeRunsCanonicalFixTestFailureSkill(t *testing.T) {
 	}
 	if !traceHasVerifier(trace, "run_tests", "passed") {
 		t.Fatalf("trace does not contain passing run_tests verifier: %#v", trace.Events)
+	}
+}
+
+func TestRuntimeRunsMovableArtifactCapsule(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill")
+	writePythonFixture(t, skillDir, true)
+	writeManifestAt(t, filepath.Join(skillDir, "manifest.yaml"), "repo")
+	artifact := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: artifact}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(skillDir); err != nil {
+		t.Fatal(err)
+	}
+	runDir := filepath.Join(root, ".agenix-runs")
+
+	result, err := Run(RunOptions{ManifestPath: artifact, RunDir: runDir})
+	if err != nil {
+		t.Fatalf("Run artifact returned error: %v", err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	if !strings.Contains(result.TracePath, runDir) {
+		t.Fatalf("trace path %q is not under run dir %q", result.TracePath, runDir)
+	}
+	if len(result.ChangedFiles) != 1 || !strings.Contains(result.ChangedFiles[0], filepath.Join("workspace", "repo", "mathlib.py")) {
+		t.Fatalf("changed files = %#v", result.ChangedFiles)
+	}
+
+	verifyResult, err := Verify(result.TracePath)
+	if err != nil {
+		t.Fatalf("Verify artifact run returned error: %v", err)
+	}
+	if verifyResult.Status != "passed" {
+		t.Fatalf("verify status = %q", verifyResult.Status)
 	}
 }
 
@@ -195,6 +233,12 @@ func writePythonFixture(t *testing.T, root string, broken bool) string {
 func writeManifest(t *testing.T, root, repo string) string {
 	t.Helper()
 	path := filepath.Join(root, "manifest.yaml")
+	writeManifestAt(t, path, repo)
+	return path
+}
+
+func writeManifestAt(t *testing.T, path, repo string) {
+	t.Helper()
 	content := `apiVersion: agenix/v0.1
 kind: Skill
 name: repo.fix_test_failure
@@ -239,7 +283,6 @@ recovery:
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return path
 }
 
 func traceHasEvent(trace Trace, eventType, name string) bool {

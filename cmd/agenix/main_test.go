@@ -88,3 +88,68 @@ verifiers:
 		t.Fatalf("unexpected inspect output: %s", inspectOut)
 	}
 }
+
+func TestCLIRunAcceptsArtifact(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill")
+	fixture := filepath.Join(skillDir, "fixture")
+	if err := os.MkdirAll(fixture, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+inputs:
+  repo_path: fixture
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+verifiers:
+  - type: command
+    name: run_tests
+    cmd: "python3 -m pytest -q"
+    cwd: ${repo_path}
+    success:
+      exit_code: 0
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+	if err := os.WriteFile(filepath.Join(skillDir, "manifest.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(fixture, "mathlib.py"), []byte("def add(a, b):\n    return a - b\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(fixture, "test_mathlib.py"), []byte("from mathlib import add\n\n\ndef test_adds_numbers():\n    assert add(2, 3) == 5\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := filepath.Join(root, "skill.agenix")
+	if out, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput(); err != nil {
+		t.Fatalf("build failed: %v\n%s", err, out)
+	}
+	if err := os.RemoveAll(skillDir); err != nil {
+		t.Fatal(err)
+	}
+
+	runOut, err := exec.Command("go", "run", ".", "run", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("run artifact failed: %v\n%s", err, runOut)
+	}
+	text := string(runOut)
+	if !strings.Contains(text, "status=passed") || !strings.Contains(text, "verifiers=run_tests:passed,output_schema_check:passed") {
+		t.Fatalf("unexpected run output: %s", text)
+	}
+}

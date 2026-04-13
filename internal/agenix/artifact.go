@@ -107,15 +107,9 @@ func BuildArtifact(options BuildOptions) (ArtifactSummary, error) {
 }
 
 func InspectArtifact(path string) (ArtifactSummary, error) {
-	file, err := os.Open(path)
+	raw, digest, err := readArtifactBytes(path)
 	if err != nil {
-		return ArtifactSummary{}, WrapError(ErrNotFound, "open artifact", err)
-	}
-	defer file.Close()
-	hasher := sha256.New()
-	raw, err := io.ReadAll(io.TeeReader(file, hasher))
-	if err != nil {
-		return ArtifactSummary{}, WrapError(ErrDriverError, "read artifact", err)
+		return ArtifactSummary{}, err
 	}
 	lock, err := readLockFromArtifact(bytes.NewReader(raw))
 	if err != nil {
@@ -125,9 +119,74 @@ func InspectArtifact(path string) (ArtifactSummary, error) {
 	return ArtifactSummary{
 		Skill:     lock.Skill.Name,
 		Version:   lock.Skill.Version,
-		Digest:    "sha256:" + hex.EncodeToString(hasher.Sum(nil)),
+		Digest:    digest,
 		FileCount: len(lock.Files),
 		Path:      abs,
+	}, nil
+}
+
+func MaterializeArtifact(path, workspaceDir string) (string, ArtifactSummary, error) {
+	raw, digest, err := readArtifactBytes(path)
+	if err != nil {
+		return "", ArtifactSummary{}, err
+	}
+	lock, err := readLockFromArtifact(bytes.NewReader(raw))
+	if err != nil {
+		return "", ArtifactSummary{}, err
+	}
+	if err := os.MkdirAll(workspaceDir, 0o755); err != nil {
+		return "", ArtifactSummary{}, WrapError(ErrDriverError, "create artifact workspace", err)
+	}
+	gz, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		return "", ArtifactSummary{}, WrapError(ErrInvalidInput, "open gzip artifact", err)
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", ArtifactSummary{}, WrapError(ErrInvalidInput, "read artifact tar", err)
+		}
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		targetRel, ok := materializedArtifactPath(header.Name)
+		if !ok {
+			continue
+		}
+		targetPath, err := safeJoin(workspaceDir, targetRel)
+		if err != nil {
+			return "", ArtifactSummary{}, err
+		}
+		if err := ensureParent(targetPath); err != nil {
+			return "", ArtifactSummary{}, WrapError(ErrDriverError, "create artifact file parent", err)
+		}
+		file, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(header.Mode).Perm())
+		if err != nil {
+			return "", ArtifactSummary{}, WrapError(ErrDriverError, "create artifact file", err)
+		}
+		if _, err := io.Copy(file, tr); err != nil {
+			_ = file.Close()
+			return "", ArtifactSummary{}, WrapError(ErrDriverError, "write artifact file", err)
+		}
+		if err := file.Close(); err != nil {
+			return "", ArtifactSummary{}, WrapError(ErrDriverError, "close artifact file", err)
+		}
+	}
+	manifestPath := filepath.Join(workspaceDir, "manifest.yaml")
+	if _, err := os.Stat(manifestPath); err != nil {
+		return "", ArtifactSummary{}, WrapError(ErrInvalidInput, "materialized artifact missing manifest", err)
+	}
+	return manifestPath, ArtifactSummary{
+		Skill:     lock.Skill.Name,
+		Version:   lock.Skill.Version,
+		Digest:    digest,
+		FileCount: len(lock.Files),
+		Path:      path,
 	}, nil
 }
 
@@ -170,6 +229,20 @@ func collectArtifactFiles(skillDir string) ([]ArtifactFileLock, error) {
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	return files, nil
+}
+
+func readArtifactBytes(path string) ([]byte, string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, "", WrapError(ErrNotFound, "open artifact", err)
+	}
+	defer file.Close()
+	hasher := sha256.New()
+	raw, err := io.ReadAll(io.TeeReader(file, hasher))
+	if err != nil {
+		return nil, "", WrapError(ErrDriverError, "read artifact", err)
+	}
+	return raw, "sha256:" + hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 func renderArtifact(skillDir, manifestPath string, lock ArtifactLock) ([]byte, string, error) {
@@ -297,4 +370,34 @@ func shouldIgnoreArtifactPath(rel string, isDir bool) bool {
 		return true
 	}
 	return false
+}
+
+func materializedArtifactPath(name string) (string, bool) {
+	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(name)))
+	if clean == "manifest.yaml" {
+		return clean, true
+	}
+	if strings.HasPrefix(clean, "files/") {
+		return strings.TrimPrefix(clean, "files/"), true
+	}
+	return "", false
+}
+
+func safeJoin(root, rel string) (string, error) {
+	if filepath.IsAbs(rel) {
+		return "", NewError(ErrInvalidInput, "artifact path must be relative: "+rel)
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", WrapError(ErrInvalidInput, "normalize artifact root", err)
+	}
+	target := filepath.Clean(filepath.Join(rootAbs, filepath.FromSlash(rel)))
+	inside, err := filepath.Rel(rootAbs, target)
+	if err != nil {
+		return "", WrapError(ErrInvalidInput, "validate artifact path", err)
+	}
+	if inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
+		return "", NewError(ErrInvalidInput, "artifact path escapes workspace: "+rel)
+	}
+	return target, nil
 }

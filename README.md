@@ -88,12 +88,15 @@ Build and inspect a portable capsule:
 ```bash
 go run ./cmd/agenix build examples/repo.fix_test_failure -o repo.fix_test_failure.agenix
 go run ./cmd/agenix inspect repo.fix_test_failure.agenix
+go run ./cmd/agenix run repo.fix_test_failure.agenix
 ```
 
 The artifact is a gzip-compressed tar capsule with `manifest.yaml`,
 `files/...`, and `agenix.lock.json`. The lockfile records the skill identity,
 source file digests, and artifact digest so the capsule can be moved and
-inspected without trusting the original directory layout.
+inspected without trusting the original directory layout. Running a capsule
+materializes it under the run directory as a workspace, preserving
+manifest-relative paths for verifier replay.
 
 ## Roadmap & Definition of Done (DoD)
 
