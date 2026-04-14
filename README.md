@@ -63,6 +63,7 @@ Agenix defines five layers:
 - `examples/`
   - `repo.fix_test_failure/` — canonical demo: patch + verify
   - `repo.analyze_test_failures/` — canonical demo: read-only failure analysis
+  - `repo.apply_small_refactor/` — canonical demo: constrained write refactor
 
 ## Runtime v0 quickstart
 
@@ -110,6 +111,17 @@ go run ./cmd/agenix run repo.analyze_test_failures.agenix
 This skill analyzes a known failing pytest fixture without any declared write
 scope. A passing run reports an empty `changed_files` list and records no
 `fs.write` event.
+
+Run the constrained refactor demo:
+
+```bash
+go run ./cmd/agenix run examples/repo.apply_small_refactor/manifest.yaml
+go run ./cmd/agenix build examples/repo.apply_small_refactor -o repo.apply_small_refactor.agenix
+go run ./cmd/agenix run repo.apply_small_refactor.agenix
+```
+
+This skill may write only `greeter.py`. A passing run reports that single file,
+runs the tests, and runs a verifier that checks the refactor shape.
 
 ## Roadmap & Definition of Done (DoD)
 

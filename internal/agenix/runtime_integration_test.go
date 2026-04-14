@@ -2,6 +2,7 @@ package agenix
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,6 +166,45 @@ func TestRuntimeRunsReadOnlyAnalyzeTestFailuresSkill(t *testing.T) {
 		}
 	}
 	for _, field := range []string{"analysis_summary", "failing_tests", "likely_root_cause", "changed_files"} {
+		if _, ok := output[field]; !ok {
+			t.Fatalf("final output missing %q: %#v", field, output)
+		}
+	}
+}
+
+func TestRuntimeRunsSmallRefactorSkillWithConstrainedWrite(t *testing.T) {
+	skillDir := filepath.Join(t.TempDir(), "repo.apply_small_refactor")
+	copyDir(t, filepath.Join("..", "..", "examples", "repo.apply_small_refactor"), skillDir)
+	manifestPath := filepath.Join(skillDir, "manifest.yaml")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	result, err := Run(RunOptions{ManifestPath: manifestPath, RunDir: runDir})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	if len(result.ChangedFiles) != 1 || filepath.Base(result.ChangedFiles[0]) != "greeter.py" {
+		t.Fatalf("expected only greeter.py to change, got %#v", result.ChangedFiles)
+	}
+
+	trace, err := ReadTrace(result.TracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writePaths := toolRequestPaths(*trace, "fs.write")
+	if len(writePaths) != 1 || filepath.Base(writePaths[0]) != "greeter.py" {
+		t.Fatalf("expected one fs.write to greeter.py, got %#v", writePaths)
+	}
+	output, ok := trace.Final.Output.(map[string]any)
+	if !ok {
+		raw, _ := json.Marshal(trace.Final.Output)
+		if err := json.Unmarshal(raw, &output); err != nil {
+			t.Fatalf("decode final output: %v", err)
+		}
+	}
+	for _, field := range []string{"patch_summary", "changed_files", "refactor_summary"} {
 		if _, ok := output[field]; !ok {
 			t.Fatalf("final output missing %q: %#v", field, output)
 		}
@@ -388,4 +428,46 @@ func traceHasVerifier(trace Trace, name, status string) bool {
 		}
 	}
 	return false
+}
+
+func toolRequestPaths(trace Trace, name string) []string {
+	paths := []string{}
+	for _, event := range trace.Events {
+		if event.Type != "tool_call" || event.Name != name {
+			continue
+		}
+		raw, _ := json.Marshal(event.Request)
+		var request map[string]any
+		if err := json.Unmarshal(raw, &request); err != nil {
+			continue
+		}
+		if path, ok := request["path"].(string); ok {
+			paths = append(paths, path)
+		}
+	}
+	return paths
+}
+
+func copyDir(t *testing.T, src, dst string) {
+	t.Helper()
+	if err := filepath.WalkDir(src, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, raw, 0o600)
+	}); err != nil {
+		t.Fatal(err)
+	}
 }

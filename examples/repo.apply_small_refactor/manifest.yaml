@@ -1,0 +1,51 @@
+apiVersion: agenix/v0.1
+kind: Skill
+
+name: repo.apply_small_refactor
+version: 0.1.0
+description: Apply a behavior-preserving refactor inside a tightly scoped file.
+
+tools:
+  - fs
+
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}/greeter.py
+  shell:
+    allow:
+
+inputs:
+  repo_path: fixture
+
+outputs:
+  required:
+    - patch_summary
+    - refactor_summary
+    - changed_files
+
+verifiers:
+  - type: command
+    name: run_tests
+    cmd: "python3 -m pytest -q"
+    cwd: ${repo_path}
+    success:
+      exit_code: 0
+
+  - type: command
+    name: refactor_shape
+    cmd: "python3 verify_refactor.py"
+    cwd: ${repo_path}
+    success:
+      exit_code: 0
+
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+
+recovery:
+  strategy: checkpoint
+  intervals: 5

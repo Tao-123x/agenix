@@ -67,10 +67,10 @@ Files:
 
 Steps:
 
-- [ ] Add a small fixture repo with a deterministic refactor target.
-- [ ] Restrict write scope to the target file or directory.
-- [ ] Verify expected content and changed files.
-- [ ] Verify out-of-scope writes fail and are traced.
+- [x] Add a small fixture repo with a deterministic refactor target.
+- [x] Restrict write scope to the target file or directory.
+- [x] Verify expected content and changed files.
+- [x] Verify out-of-scope writes fail and are traced.
 
 Acceptance:
 

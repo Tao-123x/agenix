@@ -99,6 +99,8 @@ func (FakeFixTestFailureAdapter) Execute(manifest Manifest, tools *Tools) (map[s
 		return executeFixTestFailure(manifest, tools)
 	case "repo.analyze_test_failures":
 		return executeAnalyzeTestFailures(manifest, tools)
+	case "repo.apply_small_refactor":
+		return executeApplySmallRefactor(manifest, tools)
 	default:
 		return nil, NewError(ErrInvalidInput, "fake adapter does not support skill: "+manifest.Name)
 	}
@@ -147,6 +149,34 @@ func executeAnalyzeTestFailures(manifest Manifest, tools *Tools) (map[string]any
 		"failing_tests":     []string{"test_mathlib.py::test_adds_numbers"},
 		"likely_root_cause": rootCause,
 		"changed_files":     []string{},
+	}, nil
+}
+
+func executeApplySmallRefactor(manifest Manifest, tools *Tools) (map[string]any, error) {
+	repoPath := manifest.Inputs["repo_path"]
+	target := filepath.Join(repoPath, "greeter.py")
+	content, err := tools.FSRead(target)
+	if err != nil {
+		return nil, err
+	}
+	refactored := strings.Replace(content, `def greeting(first, last):
+    return "Hello, " + first.strip() + " " + last.strip() + "!"
+`, `def full_name(first, last):
+    return first.strip() + " " + last.strip()
+
+
+def greeting(first, last):
+    return "Hello, " + full_name(first, last) + "!"
+`, 1)
+	if refactored != content {
+		if err := tools.FSWrite(target, refactored, true); err != nil {
+			return nil, err
+		}
+	}
+	return map[string]any{
+		"patch_summary":    "Extracted repeated name formatting into full_name.",
+		"refactor_summary": "greeting now delegates name formatting to full_name without changing behavior.",
+		"changed_files":    []string{target},
 	}, nil
 }
 

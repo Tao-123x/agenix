@@ -175,3 +175,25 @@ func TestCLIRunReadOnlyAnalyzeArtifact(t *testing.T) {
 		t.Fatalf("unexpected run output: %s", text)
 	}
 }
+
+func TestCLIRunSmallRefactorArtifact(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join("..", "..", "examples", "repo.apply_small_refactor")
+	artifact := filepath.Join(root, "refactor.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+
+	runOut, err := exec.Command("go", "run", ".", "run", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("run artifact failed: %v\n%s", err, runOut)
+	}
+	text := string(runOut)
+	if !strings.Contains(text, "status=passed") ||
+		!strings.Contains(text, "greeter.py") ||
+		!strings.Contains(text, "verifiers=run_tests:passed,refactor_shape:passed,output_schema_check:passed") {
+		t.Fatalf("unexpected run output: %s", text)
+	}
+}
