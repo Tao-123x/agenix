@@ -19,6 +19,10 @@ bounded tasks with explicit file ownership. No agent should revert work it did
 not make. If an implementation requires touching a file outside the assigned
 scope, the agent must report that before expanding the change.
 
+Persistent collaboration is repository-backed, not chat-backed. Role cards,
+handoff templates, customer review loops, and decision records live in
+[`persistent-agent-collaboration.md`](persistent-agent-collaboration.md).
+
 All production changes need:
 
 - a failing test first when behavior changes
@@ -32,6 +36,10 @@ All production changes need:
 
 Owner: main agent
 
+Role card:
+
+- [`roles/runtime-lead.md`](roles/runtime-lead.md)
+
 Responsibilities:
 
 - architecture and sequencing
@@ -43,6 +51,10 @@ Responsibilities:
 ### Artifact Integrity Engineer
 
 Agent: `Helmholtz`
+
+Role card:
+
+- [`roles/artifact-integrity-engineer.md`](roles/artifact-integrity-engineer.md)
 
 Initial ownership:
 
@@ -59,6 +71,10 @@ First task:
 ### Schema/Trace Contract Engineer
 
 Agent: `Zeno`
+
+Role card:
+
+- [`roles/schema-trace-contract-engineer.md`](roles/schema-trace-contract-engineer.md)
 
 Initial ownership:
 
@@ -78,6 +94,10 @@ First task:
 
 Agent: `Socrates`
 
+Role card:
+
+- [`roles/cross-platform-conformance-explorer.md`](roles/cross-platform-conformance-explorer.md)
+
 Initial ownership:
 
 - read-only review
@@ -93,6 +113,10 @@ First task:
 
 Agent: `Mill`
 
+Role card:
+
+- [`roles/adapter-boundary-explorer.md`](roles/adapter-boundary-explorer.md)
+
 Initial ownership:
 
 - read-only review
@@ -107,6 +131,10 @@ First task:
 ### First Customer
 
 Agent: `Maya Chen`
+
+Role card:
+
+- [`roles/first-customer-maya-chen.md`](roles/first-customer-maya-chen.md)
 
 Role:
 
