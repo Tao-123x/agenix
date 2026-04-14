@@ -98,7 +98,14 @@ agenix.lock.json
 
 The capsule is a gzip-compressed tar file. `agenix.lock.json` is the minimum
 provenance record for v0.1: artifact version, skill identity, manifest digest,
-source file digests, creation timestamp, and artifact digest.
+payload file digests, creation timestamp, and artifact digest.
+
+Artifact integrity in v0.1 is local and lockfile-based. The lock records a
+sha256 digest for `manifest.yaml` and each materialized `files/...` payload. On
+inspect and materialize, the runtime recomputes those digests from the capsule
+contents, verifies payload sizes when recorded, and rejects capsules with
+missing, duplicate, modified, or unlocked materialized payload entries. v0.1
+does not define signatures, registry trust, or OCI distribution semantics.
 
 When running a capsule, the runtime materializes it into the run workspace:
 `manifest.yaml` remains at the workspace root, and `files/...` entries are

@@ -96,6 +96,9 @@ func ReadTrace(path string) (*Trace, error) {
 	if err := json.Unmarshal(raw, &trace); err != nil {
 		return nil, WrapError(ErrInvalidInput, "decode trace", err)
 	}
+	if err := ValidateTrace(trace); err != nil {
+		return nil, err
+	}
 	return &trace, nil
 }
 

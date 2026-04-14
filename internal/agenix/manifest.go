@@ -156,7 +156,7 @@ func LoadManifest(path string) (Manifest, error) {
 		}
 	}
 
-	if err := manifest.validate(); err != nil {
+	if err := ValidateManifest(manifest); err != nil {
 		return Manifest{}, err
 	}
 	manifest.expandSubstitutions()
@@ -199,19 +199,6 @@ func parsePermissionsLine(line string, indent int, sub *string, permissions *Per
 			}
 		}
 	}
-}
-
-func (m Manifest) validate() error {
-	if m.APIVersion == "" || m.Kind == "" || m.Name == "" || m.Version == "" {
-		return NewError(ErrInvalidInput, "manifest missing required apiVersion, kind, name, or version")
-	}
-	if len(m.Tools) == 0 {
-		return NewError(ErrInvalidInput, "manifest must declare at least one tool")
-	}
-	if len(m.Verifiers) == 0 {
-		return NewError(ErrInvalidInput, "manifest must declare verifiers")
-	}
-	return nil
 }
 
 func (m *Manifest) expandSubstitutions() {

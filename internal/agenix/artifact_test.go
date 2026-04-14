@@ -2,8 +2,10 @@ package agenix
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,6 +83,69 @@ func TestInspectArtifactReadsCapsuleSummary(t *testing.T) {
 	}
 }
 
+func TestInspectArtifactRejectsTamperedPayload(t *testing.T) {
+	root := t.TempDir()
+	skillDir := writeCapsuleSkill(t, root)
+	out := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: out}); err != nil {
+		t.Fatal(err)
+	}
+	rewriteArtifactEntry(t, out, "files/README.md", []byte("# hack\n"))
+
+	_, err := InspectArtifact(out)
+	if err == nil {
+		t.Fatal("expected InspectArtifact to reject tampered artifact")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "digest mismatch") {
+		t.Fatalf("expected digest mismatch error, got %v", err)
+	}
+}
+
+func TestMaterializeArtifactRejectsTamperedPayload(t *testing.T) {
+	root := t.TempDir()
+	skillDir := writeCapsuleSkill(t, root)
+	out := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: out}); err != nil {
+		t.Fatal(err)
+	}
+	rewriteArtifactEntry(t, out, "files/fixture/mathlib.py", []byte("def add(a, b):\n    return a + b\n"))
+
+	_, _, err := MaterializeArtifact(out, filepath.Join(root, "workspace"))
+	if err == nil {
+		t.Fatal("expected MaterializeArtifact to reject tampered artifact")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "digest mismatch") {
+		t.Fatalf("expected digest mismatch error, got %v", err)
+	}
+}
+
+func TestInspectArtifactRejectsUnlockedPayload(t *testing.T) {
+	root := t.TempDir()
+	skillDir := writeCapsuleSkill(t, root)
+	out := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: out}); err != nil {
+		t.Fatal(err)
+	}
+	appendArtifactEntry(t, out, "files/fixture/backdoor.py", []byte("print('unexpected')\n"))
+
+	_, err := InspectArtifact(out)
+	if err == nil {
+		t.Fatal("expected InspectArtifact to reject unlocked payload")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "unexpected artifact payload") {
+		t.Fatalf("expected unexpected payload error, got %v", err)
+	}
+}
+
 func TestBuildArtifactRejectsDirectoryWithoutManifest(t *testing.T) {
 	_, err := BuildArtifact(BuildOptions{SkillDir: t.TempDir(), OutputPath: filepath.Join(t.TempDir(), "out.agenix")})
 	if err == nil {
@@ -144,6 +209,94 @@ verifiers:
 		}
 	}
 	return skillDir
+}
+
+func rewriteArtifactEntry(t *testing.T, path, entryName string, replacement []byte) {
+	t.Helper()
+	rewriteArtifact(t, path, func(entries []tarEntry) []tarEntry {
+		found := false
+		for i := range entries {
+			if entries[i].header.Name == entryName {
+				entries[i].body = replacement
+				entries[i].header.Size = int64(len(replacement))
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("artifact missing entry %s", entryName)
+		}
+		return entries
+	})
+}
+
+func appendArtifactEntry(t *testing.T, path, entryName string, body []byte) {
+	t.Helper()
+	rewriteArtifact(t, path, func(entries []tarEntry) []tarEntry {
+		return append(entries, tarEntry{
+			header: tar.Header{Name: entryName, Mode: 0o600, Size: int64(len(body))},
+			body:   body,
+		})
+	})
+}
+
+type tarEntry struct {
+	header tar.Header
+	body   []byte
+}
+
+func rewriteArtifact(t *testing.T, path string, mutate func([]tarEntry) []tarEntry) {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gz, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := tar.NewReader(gz)
+	var entries []tarEntry
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(tr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		clone := *header
+		entries = append(entries, tarEntry{header: clone, body: body})
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	entries = mutate(entries)
+
+	var buf bytes.Buffer
+	outGz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(outGz)
+	for _, entry := range entries {
+		entry.header.Size = int64(len(entry.body))
+		if err := tw.WriteHeader(&entry.header); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(entry.body); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := outGz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func readTarGzEntries(t *testing.T, path string) map[string][]byte {

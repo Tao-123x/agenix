@@ -93,3 +93,23 @@ recovery:
 - `${repo_path}` is a runtime substitution.
 - Verifiers are not optional: “agent said done” is not a verifier.
 - Permissions must be explicit.
+
+## Implemented minimum validation
+
+The current skeleton implements a lightweight contract check, not full JSON Schema
+validation. `LoadManifest` returns `InvalidInput` when these fields are missing:
+
+- `apiVersion`
+- `kind`
+- `name`
+- `version`
+- `description`
+- `tools`
+- `outputs.required`
+- `verifiers`
+- each verifier's `type`
+- each verifier's `name`
+
+The validator intentionally does not yet validate semver format, capability
+blocks, permission scope completeness, input/output property schemas, verifier
+type-specific fields, or recovery settings.

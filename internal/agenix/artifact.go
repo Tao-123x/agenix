@@ -115,6 +115,9 @@ func InspectArtifact(path string) (ArtifactSummary, error) {
 	if err != nil {
 		return ArtifactSummary{}, err
 	}
+	if err := verifyArtifactIntegrity(raw, lock); err != nil {
+		return ArtifactSummary{}, err
+	}
 	abs, _ := filepath.Abs(path)
 	return ArtifactSummary{
 		Skill:     lock.Skill.Name,
@@ -132,6 +135,9 @@ func MaterializeArtifact(path, workspaceDir string) (string, ArtifactSummary, er
 	}
 	lock, err := readLockFromArtifact(bytes.NewReader(raw))
 	if err != nil {
+		return "", ArtifactSummary{}, err
+	}
+	if err := verifyArtifactIntegrity(raw, lock); err != nil {
 		return "", ArtifactSummary{}, err
 	}
 	if err := os.MkdirAll(workspaceDir, 0o755); err != nil {
@@ -338,6 +344,71 @@ func readLockFromArtifact(reader io.Reader) (ArtifactLock, error) {
 		return lock, nil
 	}
 	return ArtifactLock{}, NewError(ErrInvalidInput, "artifact missing agenix.lock.json")
+}
+
+func verifyArtifactIntegrity(raw []byte, lock ArtifactLock) error {
+	expected := map[string]ArtifactFileLock{}
+	if lock.ManifestDigest != "" {
+		expected["manifest.yaml"] = ArtifactFileLock{Path: "manifest.yaml", Digest: lock.ManifestDigest, Size: -1}
+	}
+	for _, file := range lock.Files {
+		if _, ok := materializedArtifactPath(file.Path); !ok {
+			return NewError(ErrInvalidInput, "lockfile contains invalid artifact payload path: "+file.Path)
+		}
+		expected[file.Path] = file
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		return WrapError(ErrInvalidInput, "open gzip artifact", err)
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	seen := map[string]bool{}
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return WrapError(ErrInvalidInput, "read tar artifact", err)
+		}
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		if header.Name == "agenix.lock.json" {
+			continue
+		}
+		if _, ok := materializedArtifactPath(header.Name); !ok {
+			continue
+		}
+		want, ok := expected[header.Name]
+		if !ok {
+			return NewError(ErrInvalidInput, "unexpected artifact payload: "+header.Name)
+		}
+		if seen[header.Name] {
+			return NewError(ErrInvalidInput, "duplicate artifact payload: "+header.Name)
+		}
+		seen[header.Name] = true
+		hasher := sha256.New()
+		size, err := io.Copy(hasher, tr)
+		if err != nil {
+			return WrapError(ErrInvalidInput, "read artifact payload", err)
+		}
+		if want.Size >= 0 && size != want.Size {
+			return NewError(ErrInvalidInput, "artifact payload size mismatch: "+header.Name)
+		}
+		gotDigest := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+		if gotDigest != want.Digest {
+			return NewError(ErrInvalidInput, "artifact payload digest mismatch: "+header.Name)
+		}
+	}
+	for name := range expected {
+		if !seen[name] {
+			return NewError(ErrInvalidInput, "missing locked artifact payload: "+name)
+		}
+	}
+	return nil
 }
 
 func fileDigest(path string) (string, error) {
