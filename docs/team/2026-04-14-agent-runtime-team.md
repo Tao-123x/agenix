@@ -104,6 +104,21 @@ First task:
 - propose capability negotiation states and tests
 - identify YAGNI boundaries before real model APIs
 
+### First Customer
+
+Agent: `Maya Chen`
+
+Role:
+
+- customer representative for an Internal Developer Platform / AI Enablement
+  buyer
+- decides whether the current runtime is trial-worthy
+- blocks roadmap items that do not improve adoption, auditability, or control
+
+Customer file:
+
+- [`docs/customers/2026-04-14-first-customer-maya-chen.md`](../customers/2026-04-14-first-customer-maya-chen.md)
+
 ## First Sprint Scope
 
 In scope:
@@ -112,6 +127,7 @@ In scope:
 - minimum manifest and trace validation
 - cross-platform conformance test plan
 - adapter boundary design notes
+- customer acceptance criteria and procurement blockers
 
 Out of scope:
 
