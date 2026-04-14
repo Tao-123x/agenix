@@ -135,6 +135,42 @@ func TestArtifactTraceStoresAbsoluteManifestPathForCrossCWDVerify(t *testing.T) 
 	}
 }
 
+func TestRuntimeRunsReadOnlyAnalyzeTestFailuresSkill(t *testing.T) {
+	manifestPath := filepath.Join("..", "..", "examples", "repo.analyze_test_failures", "manifest.yaml")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	result, err := Run(RunOptions{ManifestPath: manifestPath, RunDir: runDir})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	if len(result.ChangedFiles) != 0 {
+		t.Fatalf("read-only skill should not report changed files: %#v", result.ChangedFiles)
+	}
+
+	trace, err := ReadTrace(result.TracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if traceHasEvent(*trace, "tool_call", "fs.write") {
+		t.Fatalf("read-only skill emitted fs.write event: %#v", trace.Events)
+	}
+	output, ok := trace.Final.Output.(map[string]any)
+	if !ok {
+		raw, _ := json.Marshal(trace.Final.Output)
+		if err := json.Unmarshal(raw, &output); err != nil {
+			t.Fatalf("decode final output: %v", err)
+		}
+	}
+	for _, field := range []string{"analysis_summary", "failing_tests", "likely_root_cause", "changed_files"} {
+		if _, ok := output[field]; !ok {
+			t.Fatalf("final output missing %q: %#v", field, output)
+		}
+	}
+}
+
 func TestRuntimeRecordsPolicyViolationTrace(t *testing.T) {
 	root := t.TempDir()
 	repo := writePythonFixture(t, root, true)

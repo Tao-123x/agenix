@@ -1,0 +1,44 @@
+apiVersion: agenix/v0.1
+kind: Skill
+
+name: repo.analyze_test_failures
+version: 0.1.0
+description: Analyze a failing pytest suite without modifying the repository.
+
+tools:
+  - fs
+
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+  shell:
+    allow:
+
+inputs:
+  repo_path: fixture
+
+outputs:
+  required:
+    - analysis_summary
+    - failing_tests
+    - likely_root_cause
+    - changed_files
+
+verifiers:
+  - type: command
+    name: fixture_still_fails
+    cmd: "python3 verify_failing.py"
+    cwd: ${repo_path}
+    success:
+      exit_code: 0
+
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+
+recovery:
+  strategy: checkpoint
+  intervals: 5

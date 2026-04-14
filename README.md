@@ -62,6 +62,7 @@ Agenix defines five layers:
   - `policy.md` — security/policy model
 - `examples/`
   - `repo.fix_test_failure/` — canonical demo: patch + verify
+  - `repo.analyze_test_failures/` — canonical demo: read-only failure analysis
 
 ## Runtime v0 quickstart
 
@@ -97,6 +98,18 @@ source file digests, and artifact digest so the capsule can be moved and
 inspected without trusting the original directory layout. Running a capsule
 materializes it under the run directory as a workspace, preserving
 manifest-relative paths for verifier replay.
+
+Run the read-only analysis demo:
+
+```bash
+go run ./cmd/agenix run examples/repo.analyze_test_failures/manifest.yaml
+go run ./cmd/agenix build examples/repo.analyze_test_failures -o repo.analyze_test_failures.agenix
+go run ./cmd/agenix run repo.analyze_test_failures.agenix
+```
+
+This skill analyzes a known failing pytest fixture without any declared write
+scope. A passing run reports an empty `changed_files` list and records no
+`fs.write` event.
 
 ## Roadmap & Definition of Done (DoD)
 

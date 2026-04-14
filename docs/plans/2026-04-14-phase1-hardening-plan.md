@@ -44,11 +44,11 @@ Files:
 
 Steps:
 
-- [ ] Add a fixture with a known failing test.
-- [ ] Add a manifest with read scope but no write scope.
-- [ ] Make the fake adapter produce structured analysis without filesystem writes.
-- [ ] Verify no changed files are reported.
-- [ ] Exercise build, run, verify, and replay.
+- [x] Add a fixture with a known failing test.
+- [x] Add a manifest with read scope but no write scope.
+- [x] Make the fake adapter produce structured analysis without filesystem writes.
+- [x] Verify no changed files are reported.
+- [x] Exercise build, run, verify, and replay.
 
 Acceptance:
 

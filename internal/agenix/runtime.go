@@ -94,6 +94,17 @@ func Run(options RunOptions) (RunResult, error) {
 }
 
 func (FakeFixTestFailureAdapter) Execute(manifest Manifest, tools *Tools) (map[string]any, error) {
+	switch manifest.Name {
+	case "repo.fix_test_failure":
+		return executeFixTestFailure(manifest, tools)
+	case "repo.analyze_test_failures":
+		return executeAnalyzeTestFailures(manifest, tools)
+	default:
+		return nil, NewError(ErrInvalidInput, "fake adapter does not support skill: "+manifest.Name)
+	}
+}
+
+func executeFixTestFailure(manifest Manifest, tools *Tools) (map[string]any, error) {
 	repoPath := manifest.Inputs["repo_path"]
 	target := filepath.Join(repoPath, "mathlib.py")
 	content, err := tools.FSRead(target)
@@ -109,6 +120,33 @@ func (FakeFixTestFailureAdapter) Execute(manifest Manifest, tools *Tools) (map[s
 	return map[string]any{
 		"patch_summary": "Replaced subtraction with addition in mathlib.add.",
 		"changed_files": []string{target},
+	}, nil
+}
+
+func executeAnalyzeTestFailures(manifest Manifest, tools *Tools) (map[string]any, error) {
+	repoPath := manifest.Inputs["repo_path"]
+	if _, err := tools.FSList(repoPath); err != nil {
+		return nil, err
+	}
+	sourcePath := filepath.Join(repoPath, "mathlib.py")
+	testPath := filepath.Join(repoPath, "test_mathlib.py")
+	source, err := tools.FSRead(sourcePath)
+	if err != nil {
+		return nil, err
+	}
+	testContent, err := tools.FSRead(testPath)
+	if err != nil {
+		return nil, err
+	}
+	rootCause := "Unable to identify the root cause from the fixture."
+	if strings.Contains(source, "return a - b") && strings.Contains(testContent, "assert add(2, 3) == 5") {
+		rootCause = "mathlib.add returns a - b while the test expects addition."
+	}
+	return map[string]any{
+		"analysis_summary":  "The pytest fixture fails because the add helper subtracts instead of adding.",
+		"failing_tests":     []string{"test_mathlib.py::test_adds_numbers"},
+		"likely_root_cause": rootCause,
+		"changed_files":     []string{},
 	}, nil
 }
 

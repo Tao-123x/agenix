@@ -153,3 +153,25 @@ verifiers:
 		t.Fatalf("unexpected run output: %s", text)
 	}
 }
+
+func TestCLIRunReadOnlyAnalyzeArtifact(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join("..", "..", "examples", "repo.analyze_test_failures")
+	artifact := filepath.Join(root, "analyze.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+
+	runOut, err := exec.Command("go", "run", ".", "run", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("run artifact failed: %v\n%s", err, runOut)
+	}
+	text := string(runOut)
+	if !strings.Contains(text, "status=passed") ||
+		!strings.Contains(text, "changed_files= ") ||
+		!strings.Contains(text, "verifiers=fixture_still_fails:passed,output_schema_check:passed") {
+		t.Fatalf("unexpected run output: %s", text)
+	}
+}
