@@ -31,6 +31,11 @@ Constraints:
 Constraints:
 
 - Only allowed commands (by policy/tool whitelist) may run.
+- Runtime may apply documented platform executable aliases after policy comparison and before execution.
+- v0 only defines one alias: on Windows, `python3` may resolve to `python` when `python3` points at the Microsoft Store shim and `python` is available.
+- Alias normalization must not alter arguments. It may only replace the executable token.
+- Policy comparison uses the command requested by the adapter, before alias resolution.
+- Trace entries must record both the requested command and the resolved command that was executed.
 
 ### git
 

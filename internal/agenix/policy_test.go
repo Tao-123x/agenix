@@ -53,3 +53,22 @@ func TestPolicyRequiresExactShellAllowlistMatch(t *testing.T) {
 		t.Fatalf("expected PolicyViolation, got %v", err)
 	}
 }
+
+func TestPolicyDoesNotGrantAliasCommandDirectly(t *testing.T) {
+	policy, err := NewPolicy(Permissions{
+		Shell: ShellPermissions{
+			Allow: []ShellCommand{{Run: []string{"python3", "-m", "pytest", "-q"}}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = policy.CheckShell([]string{"python", "-m", "pytest", "-q"})
+	if err == nil {
+		t.Fatal("expected direct python request to fail when only python3 is allowlisted")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+}

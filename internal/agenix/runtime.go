@@ -43,6 +43,11 @@ func Run(options RunOptions) (RunResult, error) {
 		}
 		manifestPath = materializedManifest
 	}
+	absoluteManifestPath, err := filepath.Abs(manifestPath)
+	if err != nil {
+		return RunResult{}, WrapError(ErrInvalidInput, "normalize manifest path", err)
+	}
+	manifestPath = filepath.Clean(absoluteManifestPath)
 	manifest, err := LoadManifest(manifestPath)
 	if err != nil {
 		return RunResult{}, err

@@ -97,12 +97,13 @@ func (t *Tools) FSList(path string) ([]map[string]string, error) {
 
 func (t *Tools) ShellExec(argv []string, cwd string, timeout time.Duration) (ShellResult, error) {
 	start := time.Now()
-	request := map[string]interface{}{"cmd": argv, "cwd": cwd, "timeout_ms": timeout.Milliseconds()}
+	resolved := normalizeCommandArgv(argv)
+	request := map[string]interface{}{"cmd": argv, "resolved_cmd": resolved, "cwd": cwd, "timeout_ms": timeout.Milliseconds()}
 	if err := t.policy.CheckShell(argv); err != nil {
 		t.trace.AddToolEvent("shell.exec", request, nil, err, time.Since(start).Milliseconds())
 		return ShellResult{}, err
 	}
-	result, err := runCommand(argv, cwd, timeout)
+	result, err := runCommand(resolved, cwd, timeout)
 	if err != nil {
 		t.trace.AddToolEvent("shell.exec", request, result, err, time.Since(start).Milliseconds())
 		return result, err

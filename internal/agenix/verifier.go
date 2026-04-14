@@ -54,7 +54,7 @@ func runSchemaVerifier(manifest Manifest, verifier Verifier, output map[string]a
 
 func shellArgs(command string) []string {
 	if runtime.GOOS == "windows" {
-		return []string{"cmd", "/C", command}
+		return []string{"cmd", "/C", normalizeShellCommand(command)}
 	}
 	return []string{"sh", "-c", command}
 }

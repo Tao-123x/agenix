@@ -84,6 +84,57 @@ func TestRuntimeRunsMovableArtifactCapsule(t *testing.T) {
 	}
 }
 
+func TestArtifactTraceStoresAbsoluteManifestPathForCrossCWDVerify(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill")
+	writePythonFixture(t, skillDir, true)
+	writeManifestAt(t, filepath.Join(skillDir, "manifest.yaml"), "repo")
+	artifact := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: artifact}); err != nil {
+		t.Fatal(err)
+	}
+
+	originalCWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(originalCWD); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	}()
+
+	result, err := Run(RunOptions{ManifestPath: artifact})
+	if err != nil {
+		t.Fatalf("Run artifact returned error: %v", err)
+	}
+	absTracePath, err := filepath.Abs(result.TracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace, err := ReadTrace(absTracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !filepath.IsAbs(trace.ManifestPath) {
+		t.Fatalf("trace manifest path should be absolute, got %q", trace.ManifestPath)
+	}
+
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	verifyResult, err := Verify(absTracePath)
+	if err != nil {
+		t.Fatalf("Verify from another cwd returned error: %v", err)
+	}
+	if verifyResult.Status != "passed" {
+		t.Fatalf("verify status = %q", verifyResult.Status)
+	}
+}
+
 func TestRuntimeRecordsPolicyViolationTrace(t *testing.T) {
 	root := t.TempDir()
 	repo := writePythonFixture(t, root, true)

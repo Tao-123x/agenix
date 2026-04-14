@@ -13,6 +13,9 @@
 
 - Runtime must deny tool calls outside policy.
 - Violations become traceable events.
+- Shell allowlists are exact against the command requested by the adapter.
+- Platform executable resolution happens only after shell policy succeeds.
+- If executable resolution changes a command, tool traces must include both the requested command and the resolved command.
 
 ## Approvals (optional)
 
