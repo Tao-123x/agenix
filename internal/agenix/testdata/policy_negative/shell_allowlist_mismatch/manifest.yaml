@@ -1,0 +1,26 @@
+apiVersion: agenix/v0.1
+kind: Skill
+name: policy_negative.shell_allowlist_mismatch
+version: 0.1.0
+description: Attempt a shell command that is related to, but not equal to, the allowlisted argv.
+tools:
+  - shell
+permissions:
+  network: false
+  filesystem:
+    read:
+    write:
+  shell:
+    allow:
+      - run: ["python3", "-m", "pytest", "-q"]
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+recovery:
+  strategy: checkpoint
+  intervals: 5
