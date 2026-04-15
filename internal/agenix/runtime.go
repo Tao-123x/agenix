@@ -23,7 +23,15 @@ type RunResult struct {
 }
 
 type Adapter interface {
+	Metadata() AdapterMetadata
 	Execute(manifest Manifest, tools *Tools) (map[string]any, error)
+}
+
+type AdapterMetadata struct {
+	Name            string        `json:"name"`
+	ModelProfile    string        `json:"model_profile"`
+	SupportedSkills []string      `json:"supported_skills,omitempty"`
+	Capabilities    CapabilitySet `json:"capabilities"`
 }
 
 type FakeFixTestFailureAdapter struct{}
@@ -52,21 +60,37 @@ func Run(options RunOptions) (RunResult, error) {
 	if err != nil {
 		return RunResult{}, err
 	}
-	trace := NewTrace(manifest.Name, fakeModelProfile, manifest.Permissions)
+	adapter := options.Adapter
+	if adapter == nil {
+		adapter = FakeFixTestFailureAdapter{}
+	}
+	metadata := adapter.Metadata()
+	if metadata.ModelProfile == "" {
+		metadata.ModelProfile = fakeModelProfile
+	}
+	if metadata.Name == "" {
+		metadata.Name = metadata.ModelProfile
+	}
+	trace := NewTrace(manifest.Name, metadata.ModelProfile, manifest.Permissions)
 	trace.RunID = runID
 	trace.ManifestPath = manifestPath
 	tracePath := tracePathFor(options.RunDir, runID)
 	result := RunResult{RunID: runID, TracePath: tracePath}
+	trace.AddAdapterEvent("selection", "ok", map[string]string{"skill": manifest.Name}, metadata, nil)
+	if err := validateAdapter(manifest, metadata); err != nil {
+		trace.AddAdapterEvent("capability_check", "failed", manifest.Capabilities.Requires, metadata, err)
+		trace.SetFinal("failed", nil, err.Error())
+		_ = WriteTrace(tracePath, trace)
+		result.Status = "failed"
+		return result, err
+	}
+	trace.AddAdapterEvent("capability_check", "ok", manifest.Capabilities.Requires, metadata.Capabilities, nil)
 
 	policy, err := NewPolicy(manifest.Permissions)
 	if err != nil {
 		trace.SetFinal("failed", nil, err.Error())
 		_ = WriteTrace(tracePath, trace)
 		return result, err
-	}
-	adapter := options.Adapter
-	if adapter == nil {
-		adapter = FakeFixTestFailureAdapter{}
 	}
 
 	output, err := adapter.Execute(manifest, NewTools(policy, trace))
@@ -93,6 +117,20 @@ func Run(options RunOptions) (RunResult, error) {
 	return result, nil
 }
 
+func (FakeFixTestFailureAdapter) Metadata() AdapterMetadata {
+	return AdapterMetadata{
+		Name:            "fake-scripted",
+		ModelProfile:    fakeModelProfile,
+		SupportedSkills: []string{"repo.fix_test_failure", "repo.analyze_test_failures", "repo.apply_small_refactor"},
+		Capabilities: CapabilitySet{
+			ToolCalling:      true,
+			StructuredOutput: true,
+			MaxContextTokens: 32000,
+			ReasoningLevel:   "medium",
+		},
+	}
+}
+
 func (FakeFixTestFailureAdapter) Execute(manifest Manifest, tools *Tools) (map[string]any, error) {
 	switch manifest.Name {
 	case "repo.fix_test_failure":
@@ -104,6 +142,52 @@ func (FakeFixTestFailureAdapter) Execute(manifest Manifest, tools *Tools) (map[s
 	default:
 		return nil, NewError(ErrInvalidInput, "fake adapter does not support skill: "+manifest.Name)
 	}
+}
+
+func validateAdapter(manifest Manifest, metadata AdapterMetadata) error {
+	if len(metadata.SupportedSkills) > 0 && !containsString(metadata.SupportedSkills, manifest.Name) {
+		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" does not support skill: "+manifest.Name)
+	}
+	required := manifest.Capabilities.Requires
+	if required.ToolCalling && !metadata.Capabilities.ToolCalling {
+		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" missing capability: tool_calling")
+	}
+	if required.StructuredOutput && !metadata.Capabilities.StructuredOutput {
+		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" missing capability: structured_output")
+	}
+	if required.MaxContextTokens > 0 && metadata.Capabilities.MaxContextTokens < required.MaxContextTokens {
+		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" max_context_tokens too small")
+	}
+	if required.ReasoningLevel != "" && reasoningRank(metadata.Capabilities.ReasoningLevel) < reasoningRank(required.ReasoningLevel) {
+		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" reasoning_level too low")
+	}
+	return nil
+}
+
+func reasoningRank(level string) int {
+	switch strings.ToLower(level) {
+	case "minimal":
+		return 1
+	case "low":
+		return 2
+	case "medium":
+		return 3
+	case "high":
+		return 4
+	case "xhigh":
+		return 5
+	default:
+		return 0
+	}
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func executeFixTestFailure(manifest Manifest, tools *Tools) (map[string]any, error) {
@@ -178,6 +262,10 @@ def greeting(first, last):
 		"refactor_summary": "greeting now delegates name formatting to full_name without changing behavior.",
 		"changed_files":    []string{target},
 	}, nil
+}
+
+func (EscapeAdapter) Metadata() AdapterMetadata {
+	return FakeFixTestFailureAdapter{}.Metadata()
 }
 
 func (adapter EscapeAdapter) Execute(_ Manifest, tools *Tools) (map[string]any, error) {

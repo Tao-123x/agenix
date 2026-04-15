@@ -5,6 +5,13 @@ name: repo.apply_small_refactor
 version: 0.1.0
 description: Apply a behavior-preserving refactor inside a tightly scoped file.
 
+capabilities:
+  requires:
+    tool_calling: true
+    structured_output: true
+    max_context_tokens: 32000
+    reasoning_level: medium
+
 tools:
   - fs
 

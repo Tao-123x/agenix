@@ -134,9 +134,9 @@ Files:
 
 Steps:
 
-- [ ] Split fake adapter behavior by skill name instead of hard-coding one flow.
-- [ ] Add adapter capability checks before execution.
-- [ ] Trace adapter selection and capability failures.
+- [x] Split fake adapter behavior by skill name instead of hard-coding one flow.
+- [x] Add adapter capability checks before execution.
+- [x] Trace adapter selection and capability failures.
 
 Acceptance:
 

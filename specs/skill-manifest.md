@@ -110,6 +110,13 @@ validation. `LoadManifest` returns `InvalidInput` when these fields are missing:
 - each verifier's `type`
 - each verifier's `name`
 
-The validator intentionally does not yet validate semver format, capability
-blocks, permission scope completeness, input/output property schemas, verifier
-type-specific fields, or recovery settings.
+The parser now also understands this subset of `capabilities.requires`:
+
+- `tool_calling`
+- `structured_output`
+- `max_context_tokens`
+- `reasoning_level`
+
+The validator intentionally does not yet validate semver format, permission
+scope completeness, input/output property schemas, verifier type-specific
+fields, or recovery settings.

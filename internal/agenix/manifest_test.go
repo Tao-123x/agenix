@@ -145,3 +145,48 @@ func TestLoadManifestRejectsMissingRequiredFields(t *testing.T) {
 		t.Fatalf("expected InvalidInput, got %v", err)
 	}
 }
+
+func TestLoadManifestParsesCapabilityRequirements(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+capabilities:
+  requires:
+    tool_calling: true
+    structured_output: true
+    max_context_tokens: 32000
+    reasoning_level: medium
+tools:
+  - fs
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := LoadManifest(path)
+	if err != nil {
+		t.Fatalf("LoadManifest returned error: %v", err)
+	}
+	if !got.Capabilities.Requires.ToolCalling {
+		t.Fatal("expected tool_calling requirement to be parsed")
+	}
+	if !got.Capabilities.Requires.StructuredOutput {
+		t.Fatal("expected structured_output requirement to be parsed")
+	}
+	if got.Capabilities.Requires.MaxContextTokens != 32000 {
+		t.Fatalf("max_context_tokens = %d", got.Capabilities.Requires.MaxContextTokens)
+	}
+	if got.Capabilities.Requires.ReasoningLevel != "medium" {
+		t.Fatalf("reasoning_level = %q", got.Capabilities.Requires.ReasoningLevel)
+	}
+}

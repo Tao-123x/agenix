@@ -69,6 +69,14 @@ func (t *Trace) AddVerifierEvent(name, verifierType, status, stdout, stderr stri
 	})
 }
 
+func (t *Trace) AddAdapterEvent(name, status string, request, result interface{}, err error) {
+	event := TraceEvent{Type: "adapter", Name: name, Request: request, Result: result, Status: status}
+	if err != nil {
+		event.Error = map[string]string{"class": ErrorClass(err), "message": err.Error()}
+	}
+	t.Events = append(t.Events, event)
+}
+
 func (t *Trace) SetFinal(status string, output interface{}, message string) {
 	t.Final = TraceFinal{Status: status, Output: output, Error: message}
 }

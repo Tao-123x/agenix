@@ -5,6 +5,13 @@ name: repo.fix_test_failure
 version: 0.1.0
 description: Locate a failing pytest case, patch the demo code, and verify the fix.
 
+capabilities:
+  requires:
+    tool_calling: true
+    structured_output: true
+    max_context_tokens: 32000
+    reasoning_level: medium
+
 tools:
   - fs
   - shell

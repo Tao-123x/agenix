@@ -8,18 +8,30 @@ import (
 )
 
 type Manifest struct {
-	Path        string                 `json:"path"`
-	APIVersion  string                 `json:"apiVersion"`
-	Kind        string                 `json:"kind"`
-	Name        string                 `json:"name"`
-	Version     string                 `json:"version"`
-	Description string                 `json:"description"`
-	Tools       []string               `json:"tools"`
-	Permissions Permissions            `json:"permissions"`
-	Inputs      map[string]string      `json:"inputs"`
-	Outputs     OutputSchema           `json:"outputs"`
-	Verifiers   []Verifier             `json:"verifiers"`
-	Recovery    map[string]interface{} `json:"recovery,omitempty"`
+	Path         string                 `json:"path"`
+	APIVersion   string                 `json:"apiVersion"`
+	Kind         string                 `json:"kind"`
+	Name         string                 `json:"name"`
+	Version      string                 `json:"version"`
+	Description  string                 `json:"description"`
+	Capabilities ManifestCapabilities   `json:"capabilities,omitempty"`
+	Tools        []string               `json:"tools"`
+	Permissions  Permissions            `json:"permissions"`
+	Inputs       map[string]string      `json:"inputs"`
+	Outputs      OutputSchema           `json:"outputs"`
+	Verifiers    []Verifier             `json:"verifiers"`
+	Recovery     map[string]interface{} `json:"recovery,omitempty"`
+}
+
+type ManifestCapabilities struct {
+	Requires CapabilitySet `json:"requires,omitempty"`
+}
+
+type CapabilitySet struct {
+	ToolCalling      bool   `json:"tool_calling,omitempty"`
+	StructuredOutput bool   `json:"structured_output,omitempty"`
+	MaxContextTokens int    `json:"max_context_tokens,omitempty"`
+	ReasoningLevel   string `json:"reasoning_level,omitempty"`
 }
 
 type Permissions struct {
@@ -99,6 +111,8 @@ func LoadManifest(path string) (Manifest, error) {
 		}
 
 		switch current {
+		case "capabilities":
+			parseCapabilitiesLine(trimmed, indent, &sub, &manifest.Capabilities)
 		case "tools":
 			if strings.HasPrefix(trimmed, "- ") {
 				manifest.Tools = append(manifest.Tools, cleanScalar(strings.TrimPrefix(trimmed, "- ")))
@@ -161,6 +175,33 @@ func LoadManifest(path string) (Manifest, error) {
 	}
 	manifest.expandSubstitutions()
 	return manifest, nil
+}
+
+func parseCapabilitiesLine(line string, indent int, sub *string, capabilities *ManifestCapabilities) {
+	if indent == 2 {
+		key, _, ok := splitKeyValue(line)
+		if ok {
+			*sub = key
+		}
+		return
+	}
+	if *sub != "requires" || indent != 4 {
+		return
+	}
+	key, value, ok := splitKeyValue(line)
+	if !ok {
+		return
+	}
+	switch key {
+	case "tool_calling":
+		capabilities.Requires.ToolCalling = cleanScalar(value) == "true"
+	case "structured_output":
+		capabilities.Requires.StructuredOutput = cleanScalar(value) == "true"
+	case "max_context_tokens":
+		capabilities.Requires.MaxContextTokens, _ = strconv.Atoi(cleanScalar(value))
+	case "reasoning_level":
+		capabilities.Requires.ReasoningLevel = cleanScalar(value)
+	}
 }
 
 func parsePermissionsLine(line string, indent int, sub *string, permissions *Permissions) {

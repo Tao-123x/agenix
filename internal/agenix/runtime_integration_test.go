@@ -46,6 +46,12 @@ func TestRuntimeRunsCanonicalFixTestFailureSkill(t *testing.T) {
 	if !traceHasVerifier(trace, "run_tests", "passed") {
 		t.Fatalf("trace does not contain passing run_tests verifier: %#v", trace.Events)
 	}
+	if !traceHasAdapterEvent(trace, "selection", "ok") {
+		t.Fatalf("trace does not contain adapter selection event: %#v", trace.Events)
+	}
+	if !traceHasAdapterEvent(trace, "capability_check", "ok") {
+		t.Fatalf("trace does not contain adapter capability_check event: %#v", trace.Events)
+	}
 }
 
 func TestRuntimeRunsMovableArtifactCapsule(t *testing.T) {
@@ -236,6 +242,51 @@ func TestRuntimeRecordsPolicyViolationTrace(t *testing.T) {
 	}
 }
 
+func TestRuntimeRejectsAdapterMissingCapabilitiesBeforeExecution(t *testing.T) {
+	root := t.TempDir()
+	repo := writePythonFixture(t, root, true)
+	manifestPath := writeManifest(t, root, repo)
+	runDir := filepath.Join(root, ".agenix-runs")
+	called := false
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter: capabilityLimitedAdapter{
+			called: &called,
+			metadata: AdapterMetadata{
+				Name:            "limited",
+				ModelProfile:    "limited",
+				SupportedSkills: []string{"repo.fix_test_failure"},
+				Capabilities: CapabilitySet{
+					StructuredOutput: true,
+					MaxContextTokens: 32000,
+					ReasoningLevel:   "medium",
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected adapter capability failure")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+	if called {
+		t.Fatal("adapter Execute should not have been called")
+	}
+	trace, readErr := ReadTrace(result.TracePath)
+	if readErr != nil {
+		t.Fatalf("ReadTrace returned error: %v", readErr)
+	}
+	if !traceHasAdapterEvent(*trace, "capability_check", "failed") {
+		t.Fatalf("trace does not contain failed adapter capability_check event: %#v", trace.Events)
+	}
+	if traceHasEvent(*trace, "tool_call", "fs.read") {
+		t.Fatalf("capability failure should happen before tool calls: %#v", trace.Events)
+	}
+}
+
 func TestVerifyExistingTraceRerunsVerifiers(t *testing.T) {
 	root := t.TempDir()
 	repo := writePythonFixture(t, root, false)
@@ -371,6 +422,12 @@ kind: Skill
 name: repo.fix_test_failure
 version: 0.1.0
 description: Fix a failing pytest suite.
+capabilities:
+  requires:
+    tool_calling: true
+    structured_output: true
+    max_context_tokens: 32000
+    reasoning_level: medium
 tools:
   - fs
   - shell
@@ -428,6 +485,31 @@ func traceHasVerifier(trace Trace, name, status string) bool {
 		}
 	}
 	return false
+}
+
+func traceHasAdapterEvent(trace Trace, name, status string) bool {
+	for _, event := range trace.Events {
+		if event.Type == "adapter" && event.Name == name && event.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
+type capabilityLimitedAdapter struct {
+	called   *bool
+	metadata AdapterMetadata
+}
+
+func (a capabilityLimitedAdapter) Metadata() AdapterMetadata {
+	return a.metadata
+}
+
+func (a capabilityLimitedAdapter) Execute(_ Manifest, _ *Tools) (map[string]any, error) {
+	if a.called != nil {
+		*a.called = true
+	}
+	return map[string]any{}, nil
 }
 
 func toolRequestPaths(trace Trace, name string) []string {
