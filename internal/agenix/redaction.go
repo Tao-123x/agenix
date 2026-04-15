@@ -118,6 +118,7 @@ func defaultRedactionKeys() []string {
 		"api_key",
 		"access_token",
 		"refresh_token",
+		"session_token",
 		"token",
 		"secret",
 		"password",

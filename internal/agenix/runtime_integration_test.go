@@ -381,6 +381,87 @@ func TestReplaySummarizesTrace(t *testing.T) {
 	}
 }
 
+func TestVerifyAcceptsRedactedTraceThatKeepsAuditFields(t *testing.T) {
+	root := t.TempDir()
+	repo := writePythonFixture(t, root, false)
+	manifestPath := filepath.Join(root, "manifest.yaml")
+	content := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+  - shell
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+  shell:
+    allow:
+      - run: ["python3", "-c", "print('Authorization: Bearer topsecret')"]
+inputs:
+  repo_path: ` + repo + `
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-c", "print('OPENAI_API_KEY=sk-test')"]
+    cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
+    success:
+      exit_code: 0
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+redaction:
+  keys:
+    - session_token
+recovery:
+  strategy: checkpoint
+  intervals: 5
+`
+	if err := os.WriteFile(manifestPath, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	trace := NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{})
+	trace.ManifestPath = manifestPath
+	trace.SetRedaction(RedactionConfig{Keys: []string{"session_token"}})
+	trace.AddToolEvent("shell.exec", map[string]any{"cmd": []string{"python3"}, "session_token": "abc"}, map[string]any{"path": filepath.Join(repo, "mathlib.py")}, nil, 5)
+	trace.AddVerifierEvent("run_tests", "command", "passed", map[string]any{"cmd": []string{"python3"}}, ShellResult{Stdout: "OPENAI_API_KEY=sk-test", ExitCode: 0}, nil)
+	trace.SetFinal("passed", map[string]any{"patch_summary": "ok", "changed_files": []string{filepath.Join(repo, "mathlib.py")}}, "")
+	tracePath := filepath.Join(root, "trace.json")
+	if err := WriteTrace(tracePath, trace); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(tracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "sk-test") || strings.Contains(string(raw), "\"session_token\":\"abc\"") {
+		t.Fatalf("trace leaked secret: %s", raw)
+	}
+
+	result, err := Verify(tracePath)
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("verify status = %q", result.Status)
+	}
+}
+
 func writePythonFixture(t *testing.T, root string, broken bool) string {
 	t.Helper()
 	repo := filepath.Join(root, "repo")

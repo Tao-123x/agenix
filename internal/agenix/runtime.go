@@ -55,13 +55,16 @@ func Run(options RunOptions) (RunResult, error) {
 	trace := NewTrace(manifest.Name, fakeModelProfile, manifest.Permissions)
 	trace.RunID = runID
 	trace.ManifestPath = manifestPath
+	trace.SetRedaction(manifest.Redaction)
 	tracePath := tracePathFor(options.RunDir, runID)
 	result := RunResult{RunID: runID, TracePath: tracePath}
 
 	policy, err := NewPolicy(manifest.Permissions)
 	if err != nil {
 		trace.SetFinal("failed", nil, err.Error())
-		_ = WriteTrace(tracePath, trace)
+		if writeErr := WriteTrace(tracePath, trace); writeErr != nil {
+			return result, writeErr
+		}
 		return result, err
 	}
 	adapter := options.Adapter
@@ -72,13 +75,17 @@ func Run(options RunOptions) (RunResult, error) {
 	output, err := adapter.Execute(manifest, NewTools(policy, trace))
 	if err != nil {
 		trace.SetFinal("failed", output, err.Error())
-		_ = WriteTrace(tracePath, trace)
+		if writeErr := WriteTrace(tracePath, trace); writeErr != nil {
+			return result, writeErr
+		}
 		result.Status = "failed"
 		return result, err
 	}
 	if err := RunVerifiers(manifest, output, trace); err != nil {
 		trace.SetFinal("failed", output, err.Error())
-		_ = WriteTrace(tracePath, trace)
+		if writeErr := WriteTrace(tracePath, trace); writeErr != nil {
+			return result, writeErr
+		}
 		result.Status = "failed"
 		result.VerifierSummary = verifierSummary(trace)
 		return result, err

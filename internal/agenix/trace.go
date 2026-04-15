@@ -17,6 +17,7 @@ type Trace struct {
 	Policy       Permissions  `json:"policy"`
 	Events       []TraceEvent `json:"events"`
 	Final        TraceFinal   `json:"final"`
+	redaction    RedactionConfig
 }
 
 type TraceEvent struct {
@@ -80,11 +81,19 @@ func (t *Trace) SetFinal(status string, output interface{}, message string) {
 	t.Final = TraceFinal{Status: status, Output: output, Error: message}
 }
 
+func (t *Trace) SetRedaction(config RedactionConfig) {
+	t.redaction = config
+}
+
 func WriteTrace(path string, trace *Trace) error {
 	if err := ensureParent(path); err != nil {
 		return WrapError(ErrDriverError, "create trace directory", err)
 	}
-	raw, err := json.MarshalIndent(trace, "", "  ")
+	sanitized, err := sanitizeTrace(trace)
+	if err != nil {
+		return WrapError(ErrDriverError, "sanitize trace", err)
+	}
+	raw, err := json.MarshalIndent(sanitized, "", "  ")
 	if err != nil {
 		return WrapError(ErrDriverError, "encode trace", err)
 	}
@@ -92,6 +101,31 @@ func WriteTrace(path string, trace *Trace) error {
 		return WrapError(ErrDriverError, "write trace", err)
 	}
 	return nil
+}
+
+func sanitizeTrace(trace *Trace) (*Trace, error) {
+	config, err := compileRedactionConfig(trace.redaction)
+	if err != nil {
+		return nil, err
+	}
+	sanitized := *trace
+	sanitized.Events = make([]TraceEvent, 0, len(trace.Events))
+	for _, event := range trace.Events {
+		copyEvent := event
+		copyEvent.Request = redactValue(event.Request, config)
+		copyEvent.Result = redactValue(event.Result, config)
+		copyEvent.Error = redactValue(event.Error, config)
+		copyEvent.Stdout = redactText(event.Stdout, config)
+		copyEvent.Stderr = redactText(event.Stderr, config)
+		sanitized.Events = append(sanitized.Events, copyEvent)
+	}
+	sanitized.Final = TraceFinal{
+		Status: trace.Final.Status,
+		Output: redactValue(trace.Final.Output, config),
+		Error:  redactText(trace.Final.Error, config),
+	}
+	sanitized.redaction = RedactionConfig{}
+	return &sanitized, nil
 }
 
 func ReadTrace(path string) (*Trace, error) {
