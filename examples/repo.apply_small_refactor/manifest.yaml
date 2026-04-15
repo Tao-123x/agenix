@@ -37,15 +37,23 @@ outputs:
 verifiers:
   - type: command
     name: run_tests
-    cmd: "python3 -m pytest -q"
+    run: ["python3", "-m", "pytest", "-q"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
 
   - type: command
     name: refactor_shape
-    cmd: "python3 verify_refactor.py"
+    run: ["python3", "verify_refactor.py"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
 

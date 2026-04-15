@@ -73,7 +73,12 @@ outputs:
 verifiers:
   - type: command
     name: run_tests
-    cmd: "cd ${repo_path} && pytest -q"
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
     artifacts:
@@ -91,8 +96,13 @@ recovery:
 ## Notes
 
 - `${repo_path}` is a runtime substitution.
-- Verifiers are not optional: “agent said done” is not a verifier.
+- Verifiers are not optional: "agent said done" is not a verifier.
 - Permissions must be explicit.
+- Command verifiers may use either `cmd` or `run`, but `run` is preferred for
+  deterministic cross-platform argument handling.
+- `run` command verifiers must declare `policy.executable`, `policy.cwd`, and
+  `policy.timeout_ms`.
+- Verifier trace entries record `cmd`, `resolved_cmd`, `cwd`, and `timeout_ms`.
 
 ## Implemented minimum validation
 
@@ -109,6 +119,11 @@ validation. `LoadManifest` returns `InvalidInput` when these fields are missing:
 - `verifiers`
 - each verifier's `type`
 - each verifier's `name`
+- each command verifier's `cmd` or `run`
+- each `run` verifier's `policy`
+- each `run` verifier's `policy.executable`
+- each `run` verifier's `policy.cwd`
+- each `run` verifier's `policy.timeout_ms`
 
 The parser now also understands this subset of `capabilities.requires`:
 
@@ -119,4 +134,4 @@ The parser now also understands this subset of `capabilities.requires`:
 
 The validator intentionally does not yet validate semver format, permission
 scope completeness, input/output property schemas, verifier type-specific
-fields, or recovery settings.
+fields beyond the implemented minimum, or recovery settings.

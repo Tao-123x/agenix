@@ -126,3 +126,89 @@ func TestReplayRejectsMalformedTraceAsInvalidInput(t *testing.T) {
 		t.Fatalf("expected InvalidInput, got %v", err)
 	}
 }
+
+func TestLoadManifestRejectsStructuredVerifierWithoutPolicy(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: fixture
+    success:
+      exit_code: 0
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadManifest(path)
+	if err == nil {
+		t.Fatal("expected InvalidInput error")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
+func TestLoadManifestRejectsStructuredVerifierPolicyMissingFields(t *testing.T) {
+	base := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: fixture
+    policy:
+      executable: python3
+      cwd: fixture
+      timeout_ms: 120000
+    success:
+      exit_code: 0
+`
+	tests := []struct {
+		name string
+		old  string
+		new  string
+	}{
+		{name: "policy", old: "    policy:\n      executable: python3\n      cwd: fixture\n      timeout_ms: 120000\n", new: ""},
+		{name: "policy.executable", old: "      executable: python3\n", new: ""},
+		{name: "policy.cwd", old: "      cwd: fixture\n", new: ""},
+		{name: "policy.timeout_ms", old: "      timeout_ms: 120000\n", new: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "manifest.yaml")
+			raw := strings.Replace(base, tt.old, tt.new, 1)
+			if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := LoadManifest(path)
+			if err == nil {
+				t.Fatal("expected InvalidInput error")
+			}
+			if !IsErrorClass(err, ErrInvalidInput) {
+				t.Fatalf("expected InvalidInput, got %v", err)
+			}
+		})
+	}
+}

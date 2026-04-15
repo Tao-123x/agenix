@@ -37,8 +37,12 @@ outputs:
 verifiers:
   - type: command
     name: fixture_still_fails
-    cmd: "python3 verify_failing.py"
+    run: ["python3", "verify_failing.py"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
 

@@ -52,6 +52,9 @@ func TestRuntimeRunsCanonicalFixTestFailureSkill(t *testing.T) {
 	if !traceHasAdapterEvent(trace, "capability_check", "ok") {
 		t.Fatalf("trace does not contain adapter capability_check event: %#v", trace.Events)
 	}
+	if !traceHasVerifierRequestField(trace, "run_tests", "resolved_cmd") {
+		t.Fatalf("trace does not contain structured verifier request: %#v", trace.Events)
+	}
 }
 
 func TestRuntimeRunsMovableArtifactCapsule(t *testing.T) {
@@ -453,8 +456,12 @@ outputs:
 verifiers:
   - type: command
     name: run_tests
-    cmd: "python3 -m pytest -q"
+    run: ["python3", "-m", "pytest", "-q"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
   - type: schema
@@ -490,6 +497,23 @@ func traceHasVerifier(trace Trace, name, status string) bool {
 func traceHasAdapterEvent(trace Trace, name, status string) bool {
 	for _, event := range trace.Events {
 		if event.Type == "adapter" && event.Name == name && event.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
+func traceHasVerifierRequestField(trace Trace, name, field string) bool {
+	for _, event := range trace.Events {
+		if event.Type != "verifier" || event.Name != name {
+			continue
+		}
+		raw, _ := json.Marshal(event.Request)
+		var request map[string]any
+		if err := json.Unmarshal(raw, &request); err != nil {
+			continue
+		}
+		if _, ok := request[field]; ok {
 			return true
 		}
 	}

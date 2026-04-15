@@ -61,9 +61,17 @@ type Verifier struct {
 	Type      string          `json:"type"`
 	Name      string          `json:"name"`
 	Command   string          `json:"cmd,omitempty"`
+	Run       []string        `json:"run,omitempty"`
 	CWD       string          `json:"cwd,omitempty"`
+	Policy    *VerifierPolicy `json:"policy,omitempty"`
 	SchemaRef string          `json:"schemaRef,omitempty"`
 	Success   VerifierSuccess `json:"success,omitempty"`
+}
+
+type VerifierPolicy struct {
+	Executable string `json:"executable,omitempty"`
+	CWD        string `json:"cwd,omitempty"`
+	TimeoutMS  int    `json:"timeout_ms,omitempty"`
 }
 
 type VerifierSuccess struct {
@@ -153,12 +161,33 @@ func LoadManifest(path string) (Manifest, error) {
 					currentVerifier.Name = cleanScalar(value)
 				case "cmd":
 					currentVerifier.Command = cleanScalar(value)
+				case "run":
+					currentVerifier.Run = parseInlineArray(value)
 				case "cwd":
 					currentVerifier.CWD = cleanScalar(value)
+				case "policy":
+					currentVerifier.Policy = &VerifierPolicy{}
+					sub = "verifier_policy"
 				case "schemaRef":
 					currentVerifier.SchemaRef = cleanScalar(value)
 				case "success":
 					sub = "verifier_success"
+				}
+				continue
+			}
+			if sub == "verifier_policy" && indent == 6 && currentVerifier.Policy != nil {
+				key, value, ok := splitKeyValue(trimmed)
+				if !ok {
+					continue
+				}
+				switch key {
+				case "executable":
+					currentVerifier.Policy.Executable = cleanScalar(value)
+				case "cwd":
+					currentVerifier.Policy.CWD = cleanScalar(value)
+				case "timeout_ms":
+					timeoutMS, _ := strconv.Atoi(cleanScalar(value))
+					currentVerifier.Policy.TimeoutMS = timeoutMS
 				}
 				continue
 			}
@@ -263,6 +292,12 @@ func (m *Manifest) expandSubstitutions() {
 	for i := range m.Verifiers {
 		m.Verifiers[i].CWD = expand(m.Verifiers[i].CWD)
 		m.Verifiers[i].Command = expand(m.Verifiers[i].Command)
+		if m.Verifiers[i].Policy != nil {
+			m.Verifiers[i].Policy.CWD = expand(m.Verifiers[i].Policy.CWD)
+		}
+		for j := range m.Verifiers[i].Run {
+			m.Verifiers[i].Run[j] = expand(m.Verifiers[i].Run[j])
+		}
 	}
 }
 

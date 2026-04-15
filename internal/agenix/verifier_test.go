@@ -67,3 +67,85 @@ func TestVerifierReportsCommandFailure(t *testing.T) {
 		t.Fatalf("expected VerificationFailed, got %v", err)
 	}
 }
+
+func TestVerifierRunsStructuredCommandWithoutShellParsing(t *testing.T) {
+	repo := t.TempDir()
+	manifest := Manifest{
+		Name: "repo.fix_test_failure",
+		Verifiers: []Verifier{{
+			Type: "command",
+			Name: "run_tests",
+			Run:  []string{"python3", "-c", "print(42)"},
+			CWD:  repo,
+			Policy: &VerifierPolicy{
+				Executable: "python3",
+				CWD:        repo,
+				TimeoutMS:  1000,
+			},
+			Success: VerifierSuccess{ExitCode: 0},
+		}},
+	}
+	trace := NewTrace(manifest.Name, "fake-scripted", Permissions{})
+
+	if err := RunVerifiers(manifest, map[string]any{}, trace); err != nil {
+		t.Fatalf("RunVerifiers returned error: %v", err)
+	}
+	if len(trace.Events) != 1 {
+		t.Fatalf("expected one verifier event, got %d", len(trace.Events))
+	}
+}
+
+func TestVerifierRejectsStructuredCommandWithExecutablePolicyMismatch(t *testing.T) {
+	repo := t.TempDir()
+	verifier := Verifier{
+		Type: "command",
+		Name: "run_tests",
+		Run:  []string{"python3", "-c", "print(42)"},
+		CWD:  repo,
+		Policy: &VerifierPolicy{
+			Executable: "python",
+			CWD:        repo,
+			TimeoutMS:  1000,
+		},
+		Success: VerifierSuccess{ExitCode: 0},
+	}
+	trace := NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{})
+
+	err := runCommandVerifier(verifier, trace)
+	if err == nil {
+		t.Fatal("expected PolicyViolation error")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if len(trace.Events) != 1 {
+		t.Fatalf("expected one verifier event, got %d", len(trace.Events))
+	}
+	if trace.Events[0].Error == nil {
+		t.Fatalf("expected verifier trace error payload: %#v", trace.Events[0])
+	}
+}
+
+func TestVerifierUsesPolicyTimeout(t *testing.T) {
+	repo := t.TempDir()
+	verifier := Verifier{
+		Type: "command",
+		Name: "run_tests",
+		Run:  []string{"python3", "-c", "import time; time.sleep(0.2)"},
+		CWD:  repo,
+		Policy: &VerifierPolicy{
+			Executable: "python3",
+			CWD:        repo,
+			TimeoutMS:  10,
+		},
+		Success: VerifierSuccess{ExitCode: 0},
+	}
+
+	err := runCommandVerifier(verifier, NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{}))
+	if err == nil {
+		t.Fatal("expected Timeout error")
+	}
+	if !IsErrorClass(err, ErrTimeout) {
+		t.Fatalf("expected Timeout, got %v", err)
+	}
+}

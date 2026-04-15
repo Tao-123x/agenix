@@ -34,6 +34,23 @@ func ValidateManifest(manifest Manifest) error {
 		if verifier.Name == "" {
 			return missingField("manifest", fmt.Sprintf("verifiers[%d].name", i))
 		}
+		if verifier.Type == "command" && verifier.Command == "" && len(verifier.Run) == 0 {
+			return missingField("manifest", fmt.Sprintf("verifiers[%d].cmd", i))
+		}
+		if len(verifier.Run) > 0 {
+			if verifier.Policy == nil {
+				return missingField("manifest", fmt.Sprintf("verifiers[%d].policy", i))
+			}
+			if verifier.Policy.Executable == "" {
+				return missingField("manifest", fmt.Sprintf("verifiers[%d].policy.executable", i))
+			}
+			if verifier.Policy.CWD == "" {
+				return missingField("manifest", fmt.Sprintf("verifiers[%d].policy.cwd", i))
+			}
+			if verifier.Policy.TimeoutMS == 0 {
+				return missingField("manifest", fmt.Sprintf("verifiers[%d].policy.timeout_ms", i))
+			}
+		}
 	}
 	return nil
 }
