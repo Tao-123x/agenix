@@ -73,7 +73,18 @@ func TestVerifierRunsStructuredCommandWithoutShellParsing(t *testing.T) {
 	manifest := Manifest{
 		Name: "repo.fix_test_failure",
 		Verifiers: []Verifier{
-			{Type: "command", Name: "run_tests", Run: []string{"python3", "-c", "print(42)"}, CWD: repo, Success: VerifierSuccess{ExitCode: 0}},
+			{
+				Type: "command",
+				Name: "run_tests",
+				Run:  []string{"python3", "-c", "print(42)"},
+				CWD:  repo,
+				Policy: &VerifierPolicy{
+					Executable: "python3",
+					CWD:        repo,
+					TimeoutMS:  1000,
+				},
+				Success: VerifierSuccess{ExitCode: 0},
+			},
 		},
 	}
 	trace := NewTrace(manifest.Name, "fake-scripted", Permissions{})
@@ -83,5 +94,124 @@ func TestVerifierRunsStructuredCommandWithoutShellParsing(t *testing.T) {
 	}
 	if len(trace.Events) != 1 {
 		t.Fatalf("expected one verifier event, got %d", len(trace.Events))
+	}
+}
+
+func TestVerifierRejectsStructuredCommandWithExecutablePolicyMismatch(t *testing.T) {
+	repo := t.TempDir()
+	verifier := Verifier{
+		Type: "command",
+		Name: "run_tests",
+		Run:  []string{"python3", "-c", "print(42)"},
+		CWD:  repo,
+		Policy: &VerifierPolicy{
+			Executable: "python",
+			CWD:        repo,
+			TimeoutMS:  1000,
+		},
+		Success: VerifierSuccess{ExitCode: 0},
+	}
+	trace := NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{})
+
+	err := runCommandVerifier(verifier, trace)
+	if err == nil {
+		t.Fatal("expected PolicyViolation error")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if len(trace.Events) != 1 {
+		t.Fatalf("expected one verifier event, got %d", len(trace.Events))
+	}
+	if trace.Events[0].Error == nil {
+		t.Fatalf("expected verifier trace error payload: %#v", trace.Events[0])
+	}
+}
+
+func TestVerifierRejectsStructuredCommandWithCWDPolicyMismatch(t *testing.T) {
+	repo := t.TempDir()
+	verifier := Verifier{
+		Type: "command",
+		Name: "run_tests",
+		Run:  []string{"python3", "-c", "print(42)"},
+		CWD:  repo,
+		Policy: &VerifierPolicy{
+			Executable: "python3",
+			CWD:        filepath.Join(repo, "elsewhere"),
+			TimeoutMS:  1000,
+		},
+		Success: VerifierSuccess{ExitCode: 0},
+	}
+
+	err := runCommandVerifier(verifier, NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{}))
+	if err == nil {
+		t.Fatal("expected PolicyViolation error")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+}
+
+func TestVerifierUsesPolicyTimeout(t *testing.T) {
+	repo := t.TempDir()
+	verifier := Verifier{
+		Type: "command",
+		Name: "run_tests",
+		Run:  []string{"python3", "-c", "import time; time.sleep(0.2)"},
+		CWD:  repo,
+		Policy: &VerifierPolicy{
+			Executable: "python3",
+			CWD:        repo,
+			TimeoutMS:  10,
+		},
+		Success: VerifierSuccess{ExitCode: 0},
+	}
+
+	err := runCommandVerifier(verifier, NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{}))
+	if err == nil {
+		t.Fatal("expected Timeout error")
+	}
+	if !IsErrorClass(err, ErrTimeout) {
+		t.Fatalf("expected Timeout, got %v", err)
+	}
+}
+
+func TestVerifierTraceRecordsRequestedAndResolvedCommand(t *testing.T) {
+	repo := t.TempDir()
+	verifier := Verifier{
+		Type: "command",
+		Name: "run_tests",
+		Run:  []string{"python3", "-c", "print(42)"},
+		CWD:  repo,
+		Policy: &VerifierPolicy{
+			Executable: "python3",
+			CWD:        repo,
+			TimeoutMS:  1000,
+		},
+		Success: VerifierSuccess{ExitCode: 0},
+	}
+	trace := NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{})
+
+	if err := runCommandVerifier(verifier, trace); err != nil {
+		t.Fatalf("runCommandVerifier returned error: %v", err)
+	}
+	if len(trace.Events) != 1 {
+		t.Fatalf("expected one verifier event, got %d", len(trace.Events))
+	}
+	request, ok := trace.Events[0].Request.(map[string]any)
+	if !ok {
+		t.Fatalf("expected request map, got %#v", trace.Events[0].Request)
+	}
+	if request["cwd"] != repo {
+		t.Fatalf("request cwd = %#v", request)
+	}
+	if request["timeout_ms"] != 1000 {
+		t.Fatalf("request timeout = %#v", request)
+	}
+	if _, ok := request["cmd"].([]string); !ok {
+		t.Fatalf("request cmd = %#v", request["cmd"])
+	}
+	if _, ok := request["resolved_cmd"].([]string); !ok {
+		t.Fatalf("request resolved_cmd = %#v", request["resolved_cmd"])
 	}
 }

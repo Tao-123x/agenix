@@ -57,16 +57,23 @@ func (t *Trace) AddToolEvent(name string, request, result interface{}, err error
 	t.Events = append(t.Events, event)
 }
 
-func (t *Trace) AddVerifierEvent(name, verifierType, status, stdout, stderr string, exitCode int) {
-	t.Events = append(t.Events, TraceEvent{
+func (t *Trace) AddVerifierEvent(name, verifierType, status string, request interface{}, result ShellResult, err error) {
+	event := TraceEvent{
 		Type:     "verifier",
 		Name:     name,
-		Request:  map[string]string{"type": verifierType},
+		Request:  request,
 		Status:   status,
-		Stdout:   truncate(stdout),
-		Stderr:   truncate(stderr),
-		ExitCode: exitCode,
-	})
+		Stdout:   truncate(result.Stdout),
+		Stderr:   truncate(result.Stderr),
+		ExitCode: result.ExitCode,
+	}
+	if err != nil {
+		event.Error = map[string]string{"class": ErrorClass(err), "message": err.Error()}
+	}
+	if request == nil {
+		event.Request = map[string]string{"type": verifierType}
+	}
+	t.Events = append(t.Events, event)
 }
 
 func (t *Trace) SetFinal(status string, output interface{}, message string) {
