@@ -55,6 +55,39 @@ verifiers:
 	}
 }
 
+func TestLoadManifestRejectsCommandVerifierWithoutCmdOrRun(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    success:
+      exit_code: 0
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadManifest(path)
+	if err == nil {
+		t.Fatal("expected InvalidInput error")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
 func TestTraceReaderRejectsImplementedMinimumMissingFields(t *testing.T) {
 	valid := `{
   "run_id": "run-1",

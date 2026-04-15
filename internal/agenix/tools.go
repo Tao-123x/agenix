@@ -121,6 +121,7 @@ func (t *Tools) GitDiff(repoPath string) (ShellResult, error) {
 }
 
 func runCommand(argv []string, cwd string, timeout time.Duration) (ShellResult, error) {
+	argv = normalizeCommandArgv(argv)
 	if len(argv) == 0 {
 		return ShellResult{}, NewError(ErrInvalidInput, "empty command")
 	}

@@ -3,6 +3,7 @@ package agenix
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -143,5 +144,53 @@ func TestLoadManifestRejectsMissingRequiredFields(t *testing.T) {
 	}
 	if !IsErrorClass(err, ErrInvalidInput) {
 		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
+func TestLoadManifestParsesStructuredCommandVerifierRun(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	manifestPath := filepath.Join(dir, "manifest.yaml")
+	manifest := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+inputs:
+  repo_path: ` + repo + `
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: ${repo_path}
+    success:
+      exit_code: 0
+`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("LoadManifest returned error: %v", err)
+	}
+	if got.Verifiers[0].Command != "" {
+		t.Fatalf("expected string command to stay empty, got %q", got.Verifiers[0].Command)
+	}
+	want := []string{"python3", "-m", "pytest", "-q"}
+	if !reflect.DeepEqual(got.Verifiers[0].Run, want) {
+		t.Fatalf("verifier run = %#v, want %#v", got.Verifiers[0].Run, want)
 	}
 }

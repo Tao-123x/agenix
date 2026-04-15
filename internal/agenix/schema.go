@@ -34,6 +34,9 @@ func ValidateManifest(manifest Manifest) error {
 		if verifier.Name == "" {
 			return missingField("manifest", fmt.Sprintf("verifiers[%d].name", i))
 		}
+		if verifier.Type == "command" && verifier.Command == "" && len(verifier.Run) == 0 {
+			return missingField("manifest", fmt.Sprintf("verifiers[%d].cmd", i))
+		}
 	}
 	return nil
 }

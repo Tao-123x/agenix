@@ -211,6 +211,46 @@ func TestRuntimeRunsSmallRefactorSkillWithConstrainedWrite(t *testing.T) {
 	}
 }
 
+func TestRuntimeRunsSmallRefactorSkillWithCRLFSource(t *testing.T) {
+	skillDir := filepath.Join(t.TempDir(), "repo.apply_small_refactor")
+	copyDir(t, filepath.Join("..", "..", "examples", "repo.apply_small_refactor"), skillDir)
+	greeterPath := filepath.Join(skillDir, "fixture", "greeter.py")
+	raw, err := os.ReadFile(greeterPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	normalized := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	crlf := strings.ReplaceAll(normalized, "\n", "\r\n")
+	if err := os.WriteFile(greeterPath, []byte(crlf), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(skillDir, "manifest.yaml")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	result, err := Run(RunOptions{ManifestPath: manifestPath, RunDir: runDir})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	if len(result.ChangedFiles) != 1 || filepath.Base(result.ChangedFiles[0]) != "greeter.py" {
+		t.Fatalf("expected only greeter.py to change, got %#v", result.ChangedFiles)
+	}
+
+	updated, err := os.ReadFile(greeterPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(updated)
+	if !strings.Contains(text, "def full_name(first, last):") {
+		t.Fatalf("refactor did not add full_name helper: %q", text)
+	}
+	if !strings.Contains(text, "\r\n") {
+		t.Fatalf("expected CRLF line endings to be preserved: %q", text)
+	}
+}
+
 func TestRuntimeRecordsPolicyViolationTrace(t *testing.T) {
 	root := t.TempDir()
 	repo := writePythonFixture(t, root, true)

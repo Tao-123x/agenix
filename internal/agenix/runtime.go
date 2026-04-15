@@ -159,24 +159,36 @@ func executeApplySmallRefactor(manifest Manifest, tools *Tools) (map[string]any,
 	if err != nil {
 		return nil, err
 	}
-	refactored := strings.Replace(content, `def greeting(first, last):
-    return "Hello, " + first.strip() + " " + last.strip() + "!"
-`, `def full_name(first, last):
-    return first.strip() + " " + last.strip()
-
-
-def greeting(first, last):
-    return "Hello, " + full_name(first, last) + "!"
-`, 1)
+	newline := "\n"
+	if strings.Contains(content, "\r\n") {
+		newline = "\r\n"
+	}
+	original := strings.Join([]string{
+		`def greeting(first, last):`,
+		`    return "Hello, " + first.strip() + " " + last.strip() + "!"`,
+		"",
+	}, newline)
+	replacement := strings.Join([]string{
+		`def full_name(first, last):`,
+		`    return first.strip() + " " + last.strip()`,
+		"",
+		"",
+		`def greeting(first, last):`,
+		`    return "Hello, " + full_name(first, last) + "!"`,
+		"",
+	}, newline)
+	refactored := strings.Replace(content, original, replacement, 1)
+	changedFiles := []string{}
 	if refactored != content {
 		if err := tools.FSWrite(target, refactored, true); err != nil {
 			return nil, err
 		}
+		changedFiles = append(changedFiles, target)
 	}
 	return map[string]any{
 		"patch_summary":    "Extracted repeated name formatting into full_name.",
 		"refactor_summary": "greeting now delegates name formatting to full_name without changing behavior.",
-		"changed_files":    []string{target},
+		"changed_files":    changedFiles,
 	}, nil
 }
 

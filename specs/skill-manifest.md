@@ -73,7 +73,8 @@ outputs:
 verifiers:
   - type: command
     name: run_tests
-    cmd: "cd ${repo_path} && pytest -q"
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: ${repo_path}
     success:
       exit_code: 0
     artifacts:
@@ -93,6 +94,9 @@ recovery:
 - `${repo_path}` is a runtime substitution.
 - Verifiers are not optional: “agent said done” is not a verifier.
 - Permissions must be explicit.
+- Command verifiers may use either `cmd` or `run`, but `run` is preferred for
+  deterministic argument handling across platforms because it avoids shell
+  string parsing.
 
 ## Implemented minimum validation
 
@@ -109,6 +113,7 @@ validation. `LoadManifest` returns `InvalidInput` when these fields are missing:
 - `verifiers`
 - each verifier's `type`
 - each verifier's `name`
+- each command verifier's `cmd` or `run`
 
 The validator intentionally does not yet validate semver format, capability
 blocks, permission scope completeness, input/output property schemas, verifier

@@ -67,3 +67,21 @@ func TestVerifierReportsCommandFailure(t *testing.T) {
 		t.Fatalf("expected VerificationFailed, got %v", err)
 	}
 }
+
+func TestVerifierRunsStructuredCommandWithoutShellParsing(t *testing.T) {
+	repo := t.TempDir()
+	manifest := Manifest{
+		Name: "repo.fix_test_failure",
+		Verifiers: []Verifier{
+			{Type: "command", Name: "run_tests", Run: []string{"python3", "-c", "print(42)"}, CWD: repo, Success: VerifierSuccess{ExitCode: 0}},
+		},
+	}
+	trace := NewTrace(manifest.Name, "fake-scripted", Permissions{})
+
+	if err := RunVerifiers(manifest, map[string]any{}, trace); err != nil {
+		t.Fatalf("RunVerifiers returned error: %v", err)
+	}
+	if len(trace.Events) != 1 {
+		t.Fatalf("expected one verifier event, got %d", len(trace.Events))
+	}
+}

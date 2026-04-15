@@ -34,7 +34,7 @@ outputs:
 verifiers:
   - type: command
     name: run_tests
-    cmd: "python3 -m pytest -q"
+    run: ["python3", "-m", "pytest", "-q"]
     cwd: ${repo_path}
     success:
       exit_code: 0

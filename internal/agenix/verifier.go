@@ -25,7 +25,7 @@ func RunVerifiers(manifest Manifest, output map[string]any, trace *Trace) error 
 }
 
 func runCommandVerifier(verifier Verifier, trace *Trace) error {
-	argv := shellArgs(verifier.Command)
+	argv := verifierArgs(verifier)
 	result, err := runCommand(argv, verifier.CWD, 2*time.Minute)
 	status := "passed"
 	if err != nil || result.ExitCode != verifier.Success.ExitCode {
@@ -39,6 +39,13 @@ func runCommandVerifier(verifier Verifier, trace *Trace) error {
 		return NewError(ErrVerificationFailed, verifier.Name+" failed")
 	}
 	return nil
+}
+
+func verifierArgs(verifier Verifier) []string {
+	if len(verifier.Run) > 0 {
+		return append([]string(nil), verifier.Run...)
+	}
+	return shellArgs(verifier.Command)
 }
 
 func runSchemaVerifier(manifest Manifest, verifier Verifier, output map[string]any, trace *Trace) error {
