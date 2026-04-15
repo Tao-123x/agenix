@@ -452,6 +452,33 @@ recovery:
 	if strings.Contains(string(raw), "sk-test") || strings.Contains(string(raw), "\"session_token\":\"abc\"") {
 		t.Fatalf("trace leaked secret: %s", raw)
 	}
+	persistedTrace, err := ReadTrace(tracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := persistedTrace.Events[0]
+	request, ok := event.Request.(map[string]any)
+	if !ok {
+		t.Fatalf("tool request = %#v", event.Request)
+	}
+	if request["cmd"] == nil {
+		t.Fatalf("tool request missing cmd: %#v", request)
+	}
+	resultMap, ok := event.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("tool result = %#v", event.Result)
+	}
+	if resultMap["path"] != filepath.Join(repo, "mathlib.py") {
+		t.Fatalf("tool result path = %#v", resultMap)
+	}
+	output, ok := persistedTrace.Final.Output.(map[string]any)
+	if !ok {
+		t.Fatalf("final output = %#v", persistedTrace.Final.Output)
+	}
+	changedFiles, ok := output["changed_files"].([]any)
+	if !ok || len(changedFiles) != 1 || changedFiles[0] != filepath.Join(repo, "mathlib.py") {
+		t.Fatalf("changed_files = %#v", output["changed_files"])
+	}
 
 	result, err := Verify(tracePath)
 	if err != nil {
