@@ -37,6 +37,33 @@ func ValidateManifest(manifest Manifest) error {
 		if verifier.Type == "command" && verifier.Command == "" && len(verifier.Run) == 0 {
 			return missingField("manifest", fmt.Sprintf("verifiers[%d].cmd", i))
 		}
+		if verifier.Type != "command" {
+			continue
+		}
+		if verifier.Policy != nil && len(verifier.Run) == 0 {
+			return NewError(ErrInvalidInput, "manifest verifier policy requires run")
+		}
+		if len(verifier.Run) == 0 {
+			continue
+		}
+		if verifier.Policy == nil {
+			return missingField("manifest", fmt.Sprintf("verifiers[%d].policy", i))
+		}
+		if verifier.Policy.Executable == "" {
+			return missingField("manifest", fmt.Sprintf("verifiers[%d].policy.executable", i))
+		}
+		if verifier.Policy.Executable != verifier.Run[0] {
+			return NewError(ErrInvalidInput, "manifest verifier policy executable must match run[0]")
+		}
+		if verifier.Policy.CWD == "" {
+			return missingField("manifest", fmt.Sprintf("verifiers[%d].policy.cwd", i))
+		}
+		if verifier.Policy.CWD != verifier.CWD {
+			return NewError(ErrInvalidInput, "manifest verifier policy cwd must match verifier cwd")
+		}
+		if verifier.Policy.TimeoutMS <= 0 {
+			return NewError(ErrInvalidInput, "manifest verifier policy timeout_ms must be greater than zero")
+		}
 	}
 	return nil
 }

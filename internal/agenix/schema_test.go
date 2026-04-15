@@ -88,6 +88,197 @@ verifiers:
 	}
 }
 
+func TestLoadManifestRejectsRunVerifierWithoutPolicy(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: fixture
+    success:
+      exit_code: 0
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadManifest(path)
+	if err == nil {
+		t.Fatal("expected InvalidInput error")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
+func TestLoadManifestRejectsVerifierPolicyWithoutRun(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    cmd: "python3 -m pytest -q"
+    cwd: fixture
+    policy:
+      executable: python3
+      cwd: fixture
+      timeout_ms: 120000
+    success:
+      exit_code: 0
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadManifest(path)
+	if err == nil {
+		t.Fatal("expected InvalidInput error")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
+func TestLoadManifestRejectsRunVerifierWithExecutablePolicyMismatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: fixture
+    policy:
+      executable: python
+      cwd: fixture
+      timeout_ms: 120000
+    success:
+      exit_code: 0
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadManifest(path)
+	if err == nil {
+		t.Fatal("expected InvalidInput error")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
+func TestLoadManifestRejectsRunVerifierWithCWDPolicyMismatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: fixture
+    policy:
+      executable: python3
+      cwd: elsewhere
+      timeout_ms: 120000
+    success:
+      exit_code: 0
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadManifest(path)
+	if err == nil {
+		t.Fatal("expected InvalidInput error")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
+func TestLoadManifestRejectsRunVerifierWithNonPositivePolicyTimeout(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: fixture
+    policy:
+      executable: python3
+      cwd: fixture
+      timeout_ms: 0
+    success:
+      exit_code: 0
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadManifest(path)
+	if err == nil {
+		t.Fatal("expected InvalidInput error")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
 func TestTraceReaderRejectsImplementedMinimumMissingFields(t *testing.T) {
 	valid := `{
   "run_id": "run-1",
