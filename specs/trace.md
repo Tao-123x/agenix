@@ -18,7 +18,7 @@
 
 ## Redaction
 
-- No secrets in persisted trace files.
+- Persisted trace files must be written through runtime redaction.
 - Runtime applies built-in redaction rules for common secret-bearing keys and
   text patterns before writing trace JSON.
 - Skills may append additional redaction rules through a top-level

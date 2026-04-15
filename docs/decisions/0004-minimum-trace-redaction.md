@@ -11,7 +11,7 @@ can currently land in verifier stdout, stderr, tool payloads, and final output.
 
 ## Decision
 
-Persist only redacted traces.
+Persist traces only after applying runtime redaction.
 
 - Runtime applies built-in redaction rules for common secret-bearing keys and
   text patterns.
