@@ -1,0 +1,27 @@
+apiVersion: agenix/v0.1
+kind: Skill
+name: policy_negative.write_scope_escape
+version: 0.1.0
+description: Attempt a filesystem write outside declared write scope.
+tools:
+  - fs
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+inputs:
+  repo_path: fixture
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+recovery:
+  strategy: checkpoint
+  intervals: 5

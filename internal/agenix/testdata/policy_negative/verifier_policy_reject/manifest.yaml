@@ -1,0 +1,37 @@
+apiVersion: agenix/v0.1
+kind: Skill
+name: policy_negative.verifier_policy_reject
+version: 0.1.0
+description: Fail verifier execution before command launch because verifier policy mismatches the requested command.
+tools:
+  - fs
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+inputs:
+  repo_path: fixture
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "verify_ok.py"]
+    cwd: ${repo_path}
+    policy:
+      executable: python
+      cwd: ${repo_path}
+      timeout_ms: 120000
+    success:
+      exit_code: 0
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+recovery:
+  strategy: checkpoint
+  intervals: 5
