@@ -18,8 +18,15 @@
 
 ## Redaction
 
-- No secrets in trace.
-- If secrets appear in tool output, redaction policy must mask.
+- Persisted trace files must be written through runtime redaction.
+- Runtime applies built-in redaction rules for common secret-bearing keys and
+  text patterns before writing trace JSON.
+- Skills may append additional redaction rules through a top-level
+  `redaction.keys` and `redaction.patterns` manifest block.
+- Redaction should preserve surrounding audit context and replace only the
+  secret value with `[REDACTED]` when possible.
+- If trace redaction fails, the runtime must fail closed and refuse to write the
+  trace.
 
 ## Replay
 
@@ -43,4 +50,4 @@ missing:
 This keeps `verify` and `replay` from accepting obviously malformed traces. The
 validator intentionally does not yet validate timestamp presence or format,
 policy shape, allowed event type values, request/result/error payload schemas,
-status enum values, redaction rules, or deterministic replay completeness.
+status enum values, or deterministic replay completeness.

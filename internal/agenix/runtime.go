@@ -74,6 +74,7 @@ func Run(options RunOptions) (RunResult, error) {
 	trace := NewTrace(manifest.Name, metadata.ModelProfile, manifest.Permissions)
 	trace.RunID = runID
 	trace.ManifestPath = manifestPath
+	trace.SetRedaction(manifest.Redaction)
 	tracePath := tracePathFor(options.RunDir, runID)
 	result := RunResult{RunID: runID, TracePath: tracePath}
 	trace.AddAdapterEvent("selection", "ok", map[string]string{"skill": manifest.Name}, metadata, nil)
@@ -306,6 +307,7 @@ func Verify(path string) (RunResult, error) {
 		}
 	}
 	verifyTrace := NewTrace(manifest.Name, trace.ModelProfile, manifest.Permissions)
+	verifyTrace.SetRedaction(manifest.Redaction)
 	if err := RunVerifiers(manifest, output, verifyTrace); err != nil {
 		return RunResult{Status: "failed", RunID: trace.RunID, TracePath: path, VerifierSummary: verifierSummary(verifyTrace)}, err
 	}

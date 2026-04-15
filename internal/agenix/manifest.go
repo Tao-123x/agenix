@@ -15,6 +15,7 @@ type Manifest struct {
 	Version      string                 `json:"version"`
 	Description  string                 `json:"description"`
 	Capabilities ManifestCapabilities   `json:"capabilities,omitempty"`
+	Redaction    RedactionConfig        `json:"redaction,omitempty"`
 	Tools        []string               `json:"tools"`
 	Permissions  Permissions            `json:"permissions"`
 	Inputs       map[string]string      `json:"inputs"`
@@ -78,6 +79,17 @@ type VerifierSuccess struct {
 	ExitCode int `json:"exit_code"`
 }
 
+type RedactionConfig struct {
+	Keys     []string           `json:"keys,omitempty"`
+	Patterns []RedactionPattern `json:"patterns,omitempty"`
+}
+
+type RedactionPattern struct {
+	Name        string `json:"name"`
+	Regex       string `json:"regex"`
+	SecretGroup int    `json:"secret_group"`
+}
+
 func LoadManifest(path string) (Manifest, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -89,6 +101,7 @@ func LoadManifest(path string) (Manifest, error) {
 	current := ""
 	sub := ""
 	var currentVerifier *Verifier
+	var currentPattern *RedactionPattern
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			continue
@@ -103,6 +116,7 @@ func LoadManifest(path string) (Manifest, error) {
 			}
 			current, sub = key, ""
 			currentVerifier = nil
+			currentPattern = nil
 			switch key {
 			case "apiVersion":
 				manifest.APIVersion = cleanScalar(value)
@@ -196,10 +210,15 @@ func LoadManifest(path string) (Manifest, error) {
 				exitCode, _ := strconv.Atoi(cleanScalar(value))
 				currentVerifier.Success.ExitCode = exitCode
 			}
+		case "redaction":
+			currentPattern = parseRedactionLine(trimmed, indent, &sub, &manifest.Redaction, currentPattern)
 		}
 	}
 
 	if err := ValidateManifest(manifest); err != nil {
+		return Manifest{}, err
+	}
+	if _, err := compileRedactionConfig(manifest.Redaction); err != nil {
 		return Manifest{}, err
 	}
 	manifest.expandSubstitutions()
@@ -268,6 +287,57 @@ func parsePermissionsLine(line string, indent int, sub *string, permissions *Per
 				permissions.Shell.Allow = append(permissions.Shell.Allow, ShellCommand{Run: parseInlineArray(strings.TrimSpace(strings.TrimPrefix(value, "run:")))})
 			}
 		}
+	}
+}
+
+func parseRedactionLine(line string, indent int, sub *string, redaction *RedactionConfig, current *RedactionPattern) *RedactionPattern {
+	if indent == 2 {
+		key, _, ok := splitKeyValue(line)
+		if ok {
+			*sub = key
+		}
+		return nil
+	}
+	switch *sub {
+	case "keys":
+		if indent == 4 && strings.HasPrefix(line, "- ") {
+			redaction.Keys = append(redaction.Keys, cleanScalar(strings.TrimPrefix(line, "- ")))
+		}
+		return nil
+	case "patterns":
+		if indent == 4 && strings.TrimSpace(line) == "-" {
+			redaction.Patterns = append(redaction.Patterns, RedactionPattern{})
+			return &redaction.Patterns[len(redaction.Patterns)-1]
+		}
+		if indent == 4 && strings.HasPrefix(line, "- ") {
+			key, value, ok := splitKeyValue(strings.TrimSpace(strings.TrimPrefix(line, "- ")))
+			if !ok {
+				return current
+			}
+			redaction.Patterns = append(redaction.Patterns, RedactionPattern{})
+			current = &redaction.Patterns[len(redaction.Patterns)-1]
+			applyRedactionPatternField(current, key, value)
+			return current
+		}
+		if indent == 6 && current != nil {
+			key, value, ok := splitKeyValue(line)
+			if !ok {
+				return current
+			}
+			applyRedactionPatternField(current, key, value)
+		}
+	}
+	return current
+}
+
+func applyRedactionPatternField(pattern *RedactionPattern, key, value string) {
+	switch key {
+	case "name":
+		pattern.Name = cleanScalar(value)
+	case "regex":
+		pattern.Regex = cleanScalar(value)
+	case "secret_group":
+		pattern.SecretGroup, _ = strconv.Atoi(cleanScalar(value))
 	}
 }
 

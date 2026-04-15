@@ -99,10 +99,19 @@ recovery:
 - Verifiers are not optional: "agent said done" is not a verifier.
 - Permissions must be explicit.
 - Command verifiers may use either `cmd` or `run`, but `run` is preferred for
-  deterministic cross-platform argument handling.
+  deterministic argument handling across platforms because it avoids shell
+  string parsing.
 - `run` command verifiers must declare `policy.executable`, `policy.cwd`, and
   `policy.timeout_ms`.
+- Verifier policy comparison uses the requested executable before platform alias
+  resolution.
 - Verifier trace entries record `cmd`, `resolved_cmd`, `cwd`, and `timeout_ms`.
+- Skills may declare a top-level `redaction` block.
+- `redaction.keys` appends structured sensitive field names to the runtime
+  default set.
+- `redaction.patterns` appends text masking rules using `name`, `regex`, and
+  `secret_group`.
+- Invalid redaction patterns must fail manifest load as `InvalidInput`.
 
 ## Implemented minimum validation
 
@@ -124,8 +133,11 @@ validation. `LoadManifest` returns `InvalidInput` when these fields are missing:
 - each `run` verifier's `policy.executable`
 - each `run` verifier's `policy.cwd`
 - each `run` verifier's `policy.timeout_ms`
+- each `redaction.patterns[*].name`
+- each `redaction.patterns[*].regex`
+- each `redaction.patterns[*].secret_group`
 
-The parser now also understands this subset of `capabilities.requires`:
+The parser now understands this subset of `capabilities.requires`:
 
 - `tool_calling`
 - `structured_output`

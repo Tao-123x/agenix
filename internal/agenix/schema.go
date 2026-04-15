@@ -52,6 +52,17 @@ func ValidateManifest(manifest Manifest) error {
 			}
 		}
 	}
+	for i, pattern := range manifest.Redaction.Patterns {
+		if pattern.Name == "" {
+			return missingField("manifest", fmt.Sprintf("redaction.patterns[%d].name", i))
+		}
+		if pattern.Regex == "" {
+			return missingField("manifest", fmt.Sprintf("redaction.patterns[%d].regex", i))
+		}
+		if pattern.SecretGroup == 0 {
+			return missingField("manifest", fmt.Sprintf("redaction.patterns[%d].secret_group", i))
+		}
+	}
 	return nil
 }
 
