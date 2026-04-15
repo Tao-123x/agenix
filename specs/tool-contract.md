@@ -3,7 +3,7 @@
 ## Global requirements
 
 - Every tool call must produce trace entries.
-- Tool responses must be JSON‑serializable.
+- Tool responses must be JSON-serializable.
 - Errors must be stable and classify as:
   - `InvalidInput`
   - `PermissionDenied`
@@ -31,11 +31,16 @@ Constraints:
 Constraints:
 
 - Only allowed commands (by policy/tool whitelist) may run.
-- Runtime may apply documented platform executable aliases after policy comparison and before execution.
-- v0 only defines one alias: on Windows, `python3` may resolve to `python` when `python3` points at the Microsoft Store shim and `python` is available.
-- Alias normalization must not alter arguments. It may only replace the executable token.
-- Policy comparison uses the command requested by the adapter, before alias resolution.
-- Trace entries must record both the requested command and the resolved command that was executed.
+- Runtime may apply documented platform executable aliases after policy
+  comparison and before execution.
+- v0 only defines one alias: on Windows, `python3` may resolve to `python`
+  when `python3` points at the Microsoft Store shim and `python` is available.
+- Alias normalization must not alter arguments. It may only replace the
+  executable token.
+- Policy comparison uses the command requested by the adapter, before alias
+  resolution.
+- Trace entries must record both the requested command and the resolved command
+  that was executed.
 
 ### git
 
@@ -52,8 +57,20 @@ Constraints:
 
 - `http.fetch(url, method, headers, body) -> {status, headers, body}`
 
+## Verifier contract
+
+- `run` command verifiers must declare `policy.executable`, `policy.cwd`, and
+  `policy.timeout_ms`.
+- Verifier policy comparison uses the requested executable before platform alias
+  resolution.
+- Command verifier trace entries record `cmd`, `resolved_cmd`, `cwd`, and
+  `timeout_ms`.
+- Legacy `cmd` verifiers remain backward compatible but do not satisfy the
+  procurement-grade verifier policy contract.
+
 ## Replay determinism
 
 - Tool results must be recorded in trace.
-- Runtime may choose replay from trace rather than re‑run.
-- Non‑deterministic tools must be explicit (with `nondeterministic: true`) and flagged as not strictly replayable.
+- Runtime may choose replay from trace rather than re-run.
+- Non-deterministic tools must be explicit (with `nondeterministic: true`) and
+  flagged as not strictly replayable.

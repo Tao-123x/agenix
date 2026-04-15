@@ -57,7 +57,7 @@ inputs:
   properties:
     repo_path:
       type: string
-      description: Absolute or repo‑relative path in the runtime workspace.
+      description: Absolute or repo-relative path in the runtime workspace.
 
 outputs:
   type: object
@@ -75,6 +75,10 @@ verifiers:
     name: run_tests
     run: ["python3", "-m", "pytest", "-q"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
     artifacts:
@@ -92,16 +96,24 @@ recovery:
 ## Notes
 
 - `${repo_path}` is a runtime substitution.
-- Verifiers are not optional: “agent said done” is not a verifier.
+- Verifiers are not optional: "agent said done" is not a verifier.
 - Permissions must be explicit.
 - Command verifiers may use either `cmd` or `run`, but `run` is preferred for
   deterministic argument handling across platforms because it avoids shell
   string parsing.
+- `run` command verifiers must declare `policy.executable`, `policy.cwd`, and
+  `policy.timeout_ms`.
+- Verifier policy comparison uses the requested executable before platform alias
+  resolution.
+- Verifier trace entries record `cmd`, `resolved_cmd`, `cwd`, and `timeout_ms`.
+- Legacy `cmd` verifiers remain backward compatible but do not satisfy the
+  procurement-grade verifier policy contract.
 
 ## Implemented minimum validation
 
-The current skeleton implements a lightweight contract check, not full JSON Schema
-validation. `LoadManifest` returns `InvalidInput` when these fields are missing:
+The current skeleton implements a lightweight contract check, not full JSON
+Schema validation. `LoadManifest` returns `InvalidInput` when these fields are
+missing:
 
 - `apiVersion`
 - `kind`
@@ -114,7 +126,11 @@ validation. `LoadManifest` returns `InvalidInput` when these fields are missing:
 - each verifier's `type`
 - each verifier's `name`
 - each command verifier's `cmd` or `run`
+- each `run` verifier's `policy`
+- each `run` verifier's `policy.executable`
+- each `run` verifier's `policy.cwd`
+- each `run` verifier's `policy.timeout_ms`
 
 The validator intentionally does not yet validate semver format, capability
 blocks, permission scope completeness, input/output property schemas, verifier
-type-specific fields, or recovery settings.
+type-specific fields beyond the implemented minimum, or recovery settings.
