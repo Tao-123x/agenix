@@ -19,6 +19,7 @@ type Manifest struct {
 	Inputs      map[string]string      `json:"inputs"`
 	Outputs     OutputSchema           `json:"outputs"`
 	Verifiers   []Verifier             `json:"verifiers"`
+	Redaction   RedactionConfig        `json:"redaction,omitempty"`
 	Recovery    map[string]interface{} `json:"recovery,omitempty"`
 }
 
@@ -43,6 +44,17 @@ type ShellCommand struct {
 
 type OutputSchema struct {
 	Required []string `json:"required"`
+}
+
+type RedactionConfig struct {
+	Keys     []string           `json:"keys,omitempty"`
+	Patterns []RedactionPattern `json:"patterns,omitempty"`
+}
+
+type RedactionPattern struct {
+	Name        string `json:"name"`
+	Regex       string `json:"regex"`
+	SecretGroup int    `json:"secret_group"`
 }
 
 type Verifier struct {
@@ -77,6 +89,7 @@ func LoadManifest(path string) (Manifest, error) {
 	current := ""
 	sub := ""
 	var currentVerifier *Verifier
+	var currentPattern *RedactionPattern
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			continue
@@ -91,6 +104,7 @@ func LoadManifest(path string) (Manifest, error) {
 			}
 			current, sub = key, ""
 			currentVerifier = nil
+			currentPattern = nil
 			switch key {
 			case "apiVersion":
 				manifest.APIVersion = cleanScalar(value)
@@ -181,6 +195,40 @@ func LoadManifest(path string) (Manifest, error) {
 				_, value, _ := splitKeyValue(trimmed)
 				exitCode, _ := strconv.Atoi(cleanScalar(value))
 				currentVerifier.Success.ExitCode = exitCode
+			}
+		case "redaction":
+			if indent == 2 && !strings.HasPrefix(trimmed, "- ") {
+				key, _, ok := splitKeyValue(trimmed)
+				if !ok {
+					continue
+				}
+				sub = key
+				currentPattern = nil
+				continue
+			}
+			if sub == "keys" && strings.HasPrefix(trimmed, "- ") {
+				manifest.Redaction.Keys = append(manifest.Redaction.Keys, cleanScalar(strings.TrimPrefix(trimmed, "- ")))
+				continue
+			}
+			if sub == "patterns" && indent == 4 && strings.HasPrefix(trimmed, "- name:") {
+				pattern := RedactionPattern{Name: cleanScalar(strings.TrimSpace(strings.TrimPrefix(trimmed, "- name:")))}
+				manifest.Redaction.Patterns = append(manifest.Redaction.Patterns, pattern)
+				currentPattern = &manifest.Redaction.Patterns[len(manifest.Redaction.Patterns)-1]
+				continue
+			}
+			if sub == "patterns" && currentPattern != nil && indent == 6 {
+				key, value, ok := splitKeyValue(trimmed)
+				if !ok {
+					continue
+				}
+				switch key {
+				case "regex":
+					currentPattern.Regex = cleanScalar(value)
+				case "secret_group":
+					secretGroup, _ := strconv.Atoi(cleanScalar(value))
+					currentPattern.SecretGroup = secretGroup
+				}
+				continue
 			}
 		}
 	}

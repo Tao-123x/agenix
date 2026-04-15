@@ -350,3 +350,57 @@ func TestReplayRejectsMalformedTraceAsInvalidInput(t *testing.T) {
 		t.Fatalf("expected InvalidInput, got %v", err)
 	}
 }
+
+func TestLoadManifestRejectsInvalidRedactionPatterns(t *testing.T) {
+	valid := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+redaction:
+  patterns:
+    - name: customer-bearer
+      regex: '(?i)(x-customer-token:\\s*)([^\\s]+)'
+      secret_group: 2
+`
+	tests := []struct {
+		name string
+		old  string
+		new  string
+	}{
+		{name: "missing name", old: "    - name: customer-bearer\n", new: "    - name:\n"},
+		{name: "missing regex", old: "      regex: '(?i)(x-customer-token:\\\\s*)([^\\\\s]+)'\n", new: "      regex:\n"},
+		{name: "invalid regex", old: "      regex: '(?i)(x-customer-token:\\\\s*)([^\\\\s]+)'\n", new: "      regex: '('\n"},
+		{name: "nonpositive secret_group", old: "      secret_group: 2\n", new: "      secret_group: 0\n"},
+		{name: "secret_group out of range", old: "      secret_group: 2\n", new: "      secret_group: 3\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "manifest.yaml")
+			raw := strings.Replace(valid, tt.old, tt.new, 1)
+			if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := LoadManifest(path)
+			if err == nil {
+				t.Fatal("expected InvalidInput error")
+			}
+			if !IsErrorClass(err, ErrInvalidInput) {
+				t.Fatalf("expected InvalidInput, got %v", err)
+			}
+		})
+	}
+}

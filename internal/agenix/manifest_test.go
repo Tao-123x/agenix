@@ -250,3 +250,49 @@ verifiers:
 		t.Fatalf("verifier policy timeout_ms = %d", got.Verifiers[0].Policy.TimeoutMS)
 	}
 }
+
+func TestLoadManifestParsesTopLevelRedactionBlock(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := filepath.Join(dir, "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+redaction:
+  keys:
+    - session_token
+  patterns:
+    - name: customer-bearer
+      regex: '(?i)(x-customer-token:\\s*)([^\\s]+)'
+      secret_group: 2
+`
+	if err := os.WriteFile(manifestPath, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest, err := LoadManifest(manifestPath)
+	if err != nil {
+		t.Fatalf("LoadManifest returned error: %v", err)
+	}
+	if len(manifest.Redaction.Keys) != 1 || manifest.Redaction.Keys[0] != "session_token" {
+		t.Fatalf("redaction keys = %#v", manifest.Redaction.Keys)
+	}
+	if len(manifest.Redaction.Patterns) != 1 {
+		t.Fatalf("redaction patterns = %#v", manifest.Redaction.Patterns)
+	}
+	if manifest.Redaction.Patterns[0].Name != "customer-bearer" {
+		t.Fatalf("pattern name = %#v", manifest.Redaction.Patterns[0])
+	}
+}

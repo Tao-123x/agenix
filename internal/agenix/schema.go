@@ -1,6 +1,9 @@
 package agenix
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+)
 
 func ValidateManifest(manifest Manifest) error {
 	if manifest.APIVersion == "" {
@@ -26,6 +29,9 @@ func ValidateManifest(manifest Manifest) error {
 	}
 	if len(manifest.Verifiers) == 0 {
 		return missingField("manifest", "verifiers")
+	}
+	if err := validateRedactionConfig(manifest.Redaction); err != nil {
+		return err
 	}
 	for i, verifier := range manifest.Verifiers {
 		if verifier.Type == "" {
@@ -63,6 +69,28 @@ func ValidateManifest(manifest Manifest) error {
 		}
 		if verifier.Policy.TimeoutMS <= 0 {
 			return NewError(ErrInvalidInput, "manifest verifier policy timeout_ms must be greater than zero")
+		}
+	}
+	return nil
+}
+
+func validateRedactionConfig(config RedactionConfig) error {
+	for i, pattern := range config.Patterns {
+		if pattern.Name == "" {
+			return missingField("manifest", fmt.Sprintf("redaction.patterns[%d].name", i))
+		}
+		if pattern.Regex == "" {
+			return missingField("manifest", fmt.Sprintf("redaction.patterns[%d].regex", i))
+		}
+		compiled, err := regexp.Compile(pattern.Regex)
+		if err != nil {
+			return WrapError(ErrInvalidInput, "manifest redaction pattern regex", err)
+		}
+		if pattern.SecretGroup <= 0 {
+			return NewError(ErrInvalidInput, "manifest redaction secret_group must be greater than zero")
+		}
+		if pattern.SecretGroup > compiled.NumSubexp() {
+			return NewError(ErrInvalidInput, "manifest redaction secret_group exceeds regex capture groups")
 		}
 	}
 	return nil
