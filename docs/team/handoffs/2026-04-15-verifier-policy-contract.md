@@ -54,6 +54,7 @@
 - Added regression coverage for policy validation, policy enforcement, timeout,
   and trace request shape.
 - negative policy scenarios now live under `internal/agenix/testdata/policy_negative` and run in GitHub Actions on Linux and Windows
+- minimum trace redaction now masks built-in secret patterns plus manifest-added redaction rules before trace files are written
 
 ## Verification
 

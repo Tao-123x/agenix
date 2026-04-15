@@ -106,6 +106,12 @@ recovery:
 - Verifier policy comparison uses the requested executable before platform alias
   resolution.
 - Verifier trace entries record `cmd`, `resolved_cmd`, `cwd`, and `timeout_ms`.
+- Skills may declare a top-level `redaction` block.
+- `redaction.keys` appends structured sensitive field names to the runtime
+  default set.
+- `redaction.patterns` appends text masking rules using `name`, `regex`, and
+  `secret_group`.
+- Invalid redaction patterns must fail manifest load as `InvalidInput`.
 - Legacy `cmd` verifiers remain backward compatible but do not satisfy the
   procurement-grade verifier policy contract.
 
