@@ -53,6 +53,7 @@
 - Migrated canonical `run` verifiers to declare policy blocks.
 - Added regression coverage for policy validation, policy enforcement, timeout,
   and trace request shape.
+- negative policy scenarios now live under `internal/agenix/testdata/policy_negative` and run in GitHub Actions on Linux and Windows
 
 ## Verification
 
