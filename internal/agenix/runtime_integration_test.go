@@ -46,6 +46,9 @@ func TestRuntimeRunsCanonicalFixTestFailureSkill(t *testing.T) {
 	if !traceHasVerifier(trace, "run_tests", "passed") {
 		t.Fatalf("trace does not contain passing run_tests verifier: %#v", trace.Events)
 	}
+	if timeout := verifierRequestValue(trace, "run_tests", "timeout_ms"); timeout != float64(120000) {
+		t.Fatalf("run_tests verifier timeout_ms = %#v", timeout)
+	}
 }
 
 func TestRuntimeRunsMovableArtifactCapsule(t *testing.T) {
@@ -436,8 +439,12 @@ outputs:
 verifiers:
   - type: command
     name: run_tests
-    cmd: "python3 -m pytest -q"
+    run: ["python3", "-m", "pytest", "-q"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
   - type: schema
@@ -468,6 +475,21 @@ func traceHasVerifier(trace Trace, name, status string) bool {
 		}
 	}
 	return false
+}
+
+func verifierRequestValue(trace Trace, name, key string) any {
+	for _, event := range trace.Events {
+		if event.Type != "verifier" || event.Name != name {
+			continue
+		}
+		raw, _ := json.Marshal(event.Request)
+		var request map[string]any
+		if err := json.Unmarshal(raw, &request); err != nil {
+			return nil
+		}
+		return request[key]
+	}
+	return nil
 }
 
 func toolRequestPaths(trace Trace, name string) []string {

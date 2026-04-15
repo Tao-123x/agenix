@@ -32,6 +32,10 @@ verifiers:
     name: run_tests
     run: ["python3", "-m", "pytest", "-q"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
 
@@ -39,6 +43,10 @@ verifiers:
     name: refactor_shape
     run: ["python3", "verify_refactor.py"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
 
