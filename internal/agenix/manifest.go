@@ -210,10 +210,21 @@ func LoadManifest(path string) (Manifest, error) {
 				manifest.Redaction.Keys = append(manifest.Redaction.Keys, cleanScalar(strings.TrimPrefix(trimmed, "- ")))
 				continue
 			}
-			if sub == "patterns" && indent == 4 && strings.HasPrefix(trimmed, "- name:") {
-				pattern := RedactionPattern{Name: cleanScalar(strings.TrimSpace(strings.TrimPrefix(trimmed, "- name:")))}
+			if sub == "patterns" && indent == 4 && trimmed == "-" {
+				pattern := RedactionPattern{}
 				manifest.Redaction.Patterns = append(manifest.Redaction.Patterns, pattern)
 				currentPattern = &manifest.Redaction.Patterns[len(manifest.Redaction.Patterns)-1]
+				continue
+			}
+			if sub == "patterns" && indent == 4 && strings.HasPrefix(trimmed, "- ") {
+				pattern := RedactionPattern{}
+				manifest.Redaction.Patterns = append(manifest.Redaction.Patterns, pattern)
+				currentPattern = &manifest.Redaction.Patterns[len(manifest.Redaction.Patterns)-1]
+				key, value, ok := splitKeyValue(strings.TrimSpace(strings.TrimPrefix(trimmed, "- ")))
+				if !ok {
+					continue
+				}
+				applyRedactionPatternField(currentPattern, key, value)
 				continue
 			}
 			if sub == "patterns" && currentPattern != nil && indent == 6 {
@@ -221,13 +232,7 @@ func LoadManifest(path string) (Manifest, error) {
 				if !ok {
 					continue
 				}
-				switch key {
-				case "regex":
-					currentPattern.Regex = cleanScalar(value)
-				case "secret_group":
-					secretGroup, _ := strconv.Atoi(cleanScalar(value))
-					currentPattern.SecretGroup = secretGroup
-				}
+				applyRedactionPatternField(currentPattern, key, value)
 				continue
 			}
 		}
@@ -275,6 +280,18 @@ func parsePermissionsLine(line string, indent int, sub *string, permissions *Per
 				permissions.Shell.Allow = append(permissions.Shell.Allow, ShellCommand{Run: parseInlineArray(strings.TrimSpace(strings.TrimPrefix(value, "run:")))})
 			}
 		}
+	}
+}
+
+func applyRedactionPatternField(pattern *RedactionPattern, key, value string) {
+	switch key {
+	case "name":
+		pattern.Name = cleanScalar(value)
+	case "regex":
+		pattern.Regex = cleanScalar(value)
+	case "secret_group":
+		secretGroup, _ := strconv.Atoi(cleanScalar(value))
+		pattern.SecretGroup = secretGroup
 	}
 }
 
