@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -78,7 +79,16 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("run_id=%s skill=%s status=%s events=%d\n", summary.RunID, summary.Skill, summary.FinalStatus, summary.EventCount)
+		fmt.Println(formatReplaySummary(summary))
+		for i, event := range summary.Events {
+			fmt.Println(formatReplayEvent(i, event))
+		}
+		if summary.FinalOutput != nil {
+			fmt.Printf("final_output=%s\n", mustJSON(summary.FinalOutput))
+		}
+		if summary.FinalError != "" {
+			fmt.Printf("final_error=%s\n", summary.FinalError)
+		}
 		return nil
 	case "validate":
 		if len(args) != 2 {
@@ -141,6 +151,48 @@ func formatRegistryEntries(entries []agenix.RegistryEntry) string {
 		lines = append(lines, formatRegistryEntry(entry))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func formatReplaySummary(summary agenix.ReplaySummary) string {
+	return fmt.Sprintf("run_id=%s skill=%s status=%s events=%d", summary.RunID, summary.Skill, summary.FinalStatus, summary.EventCount)
+}
+
+func formatReplayEvent(index int, event agenix.TraceEvent) string {
+	parts := []string{
+		fmt.Sprintf("event[%d]", index),
+		"type=" + event.Type,
+		"name=" + event.Name,
+	}
+	if event.Status != "" {
+		parts = append(parts, "status="+event.Status)
+	}
+	if event.Type == "verifier" || event.ExitCode != 0 {
+		parts = append(parts, fmt.Sprintf("exit_code=%d", event.ExitCode))
+	}
+	if event.DurationMS != 0 {
+		parts = append(parts, fmt.Sprintf("duration_ms=%d", event.DurationMS))
+	}
+	if class := replayErrorClass(event.Error); class != "" {
+		parts = append(parts, "error_class="+class)
+	}
+	return strings.Join(parts, " ")
+}
+
+func mustJSON(value interface{}) string {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return `"<unserializable>"`
+	}
+	return string(raw)
+}
+
+func replayErrorClass(value interface{}) string {
+	if typed, ok := value.(map[string]interface{}); ok {
+		if class, ok := typed["class"].(string); ok {
+			return class
+		}
+	}
+	return ""
 }
 
 func parsePublishArgs(args []string) (string, string, error) {

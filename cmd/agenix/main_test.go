@@ -11,7 +11,7 @@ import (
 func TestCLIReplayPrintsSummary(t *testing.T) {
 	root := t.TempDir()
 	tracePath := filepath.Join(root, "trace.json")
-	trace := `{"run_id":"run-test","skill":"repo.fix_test_failure","model_profile":"fake-scripted","events":[{"type":"tool_call","name":"fs.read"}],"final":{"status":"passed"}}`
+	trace := `{"run_id":"run-test","skill":"repo.fix_test_failure","model_profile":"fake-scripted","events":[{"type":"tool_call","name":"fs.read"},{"type":"verifier","name":"run_tests","status":"passed","exit_code":0}],"final":{"status":"passed","output":{"patch_summary":"done","changed_files":["fixture/mathlib.py"]}}}`
 	if err := os.WriteFile(tracePath, []byte(trace), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -24,6 +24,15 @@ func TestCLIReplayPrintsSummary(t *testing.T) {
 	text := string(out)
 	if !strings.Contains(text, "skill=repo.fix_test_failure") || !strings.Contains(text, "status=passed") {
 		t.Fatalf("unexpected replay output: %s", text)
+	}
+	if !strings.Contains(text, "event[0] type=tool_call name=fs.read") {
+		t.Fatalf("missing replay event output: %s", text)
+	}
+	if !strings.Contains(text, "event[1] type=verifier name=run_tests status=passed exit_code=0") {
+		t.Fatalf("missing verifier replay output: %s", text)
+	}
+	if !strings.Contains(text, `final_output={"changed_files":["fixture/mathlib.py"],"patch_summary":"done"}`) {
+		t.Fatalf("missing final output replay output: %s", text)
 	}
 }
 

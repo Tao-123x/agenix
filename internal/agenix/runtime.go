@@ -323,6 +323,9 @@ type ReplaySummary struct {
 	Skill       string
 	FinalStatus string
 	EventCount  int
+	Events      []TraceEvent
+	FinalOutput interface{}
+	FinalError  string
 }
 
 func Replay(path string) (ReplaySummary, error) {
@@ -335,6 +338,9 @@ func Replay(path string) (ReplaySummary, error) {
 		Skill:       trace.Skill,
 		FinalStatus: trace.Final.Status,
 		EventCount:  len(trace.Events),
+		Events:      append([]TraceEvent(nil), trace.Events...),
+		FinalOutput: trace.Final.Output,
+		FinalError:  trace.Final.Error,
 	}, nil
 }
 

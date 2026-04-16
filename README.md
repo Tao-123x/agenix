@@ -109,6 +109,8 @@ go run ./cmd/agenix validate examples/repo.fix_test_failure/manifest.yaml
 The first command should fail because the fixture starts broken. The `agenix run`
 command fixes it through the runtime `fs.write` tool, records every tool and
 verifier event in a JSON trace, and only reports success after verifier pass.
+`agenix replay` then reads that trace and prints the recorded event sequence plus
+the final output without re-executing the tool loop.
 
 Build and inspect a portable capsule:
 

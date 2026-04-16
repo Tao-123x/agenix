@@ -421,6 +421,16 @@ func TestReplaySummarizesTrace(t *testing.T) {
 	if summary.Skill != "repo.fix_test_failure" || summary.FinalStatus != "passed" || summary.EventCount == 0 {
 		t.Fatalf("bad replay summary: %#v", summary)
 	}
+	if len(summary.Events) == 0 {
+		t.Fatalf("missing replay events: %#v", summary)
+	}
+	output, ok := summary.FinalOutput.(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected replay final output: %#v", summary.FinalOutput)
+	}
+	if output["patch_summary"] == "" {
+		t.Fatalf("missing replay final patch_summary: %#v", output)
+	}
 }
 
 func writePythonFixture(t *testing.T, root string, broken bool) string {

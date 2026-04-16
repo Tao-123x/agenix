@@ -36,6 +36,10 @@
   - re‑execute
   - or replay tool results deterministically from trace (if supported)
 
+The current reference CLI replay path is trace-driven only: it reads the stored
+trace, prints the event sequence in order, and prints the final output payload.
+It does not re-execute tools or verifiers.
+
 ## Implemented minimum validation
 
 The reference runtime now publishes a schema file at `specs/trace.schema.json`.
