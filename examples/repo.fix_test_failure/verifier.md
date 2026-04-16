@@ -1,5 +1,7 @@
 # Verifier for repo.fix_test_failure
 
+[English](verifier.md) | [简体中文](verifier.zh-CN.md)
+
 Success criteria:
 
 1. `pytest -q` exits 0

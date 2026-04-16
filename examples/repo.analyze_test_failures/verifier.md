@@ -1,5 +1,7 @@
 # Verifier for repo.analyze_test_failures
 
+[English](verifier.md) | [简体中文](verifier.zh-CN.md)
+
 The verifier has two checks:
 
 1. `fixture_still_fails` runs `python3 verify_failing.py` inside the fixture.

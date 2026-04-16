@@ -1,5 +1,7 @@
 # Verifier for repo.apply_small_refactor
 
+[English](verifier.md) | [简体中文](verifier.zh-CN.md)
+
 The verifier has three checks:
 
 1. `run_tests` runs `python3 -m pytest -q` inside the fixture.
