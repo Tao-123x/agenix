@@ -69,7 +69,7 @@ Agenix defines five layers:
 
 ## Bilingual Docs
 
-Core entrypoints with English and Simplified Chinese versions:
+Core specs:
 
 - [README](README.md) / [README.zh-CN](README.zh-CN.md)
 - [Agenix Spec](specs/agenix-spec-v0.1.md) / [Agenix Spec.zh-CN](specs/agenix-spec-v0.1.zh-CN.md)
@@ -79,6 +79,15 @@ Core entrypoints with English and Simplified Chinese versions:
 - [Capabilities](specs/capability.md) / [Capabilities.zh-CN](specs/capability.zh-CN.md)
 - [Trace](specs/trace.md) / [Trace.zh-CN](specs/trace.zh-CN.md)
 - [Policy](specs/policy.md) / [Policy.zh-CN](specs/policy.zh-CN.md)
+
+Example docs:
+
+- [repo.fix_test_failure README](examples/repo.fix_test_failure/README.md) / [中文](examples/repo.fix_test_failure/README.zh-CN.md)
+- [repo.fix_test_failure verifier](examples/repo.fix_test_failure/verifier.md) / [中文](examples/repo.fix_test_failure/verifier.zh-CN.md)
+- [repo.analyze_test_failures README](examples/repo.analyze_test_failures/README.md) / [中文](examples/repo.analyze_test_failures/README.zh-CN.md)
+- [repo.analyze_test_failures verifier](examples/repo.analyze_test_failures/verifier.md) / [中文](examples/repo.analyze_test_failures/verifier.zh-CN.md)
+- [repo.apply_small_refactor README](examples/repo.apply_small_refactor/README.md) / [中文](examples/repo.apply_small_refactor/README.zh-CN.md)
+- [repo.apply_small_refactor verifier](examples/repo.apply_small_refactor/verifier.md) / [中文](examples/repo.apply_small_refactor/verifier.zh-CN.md)
 
 ## Runtime v0 quickstart
 
