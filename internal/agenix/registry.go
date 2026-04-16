@@ -35,6 +35,58 @@ type RegistryIndex struct {
 	Entries []RegistryEntry `json:"entries"`
 }
 
+func ListRegistryEntries(registry string) ([]RegistryEntry, error) {
+	registryRoot, err := registryRoot(registry)
+	if err != nil {
+		return nil, err
+	}
+	index, err := loadRegistryIndex(registryRoot)
+	if err != nil {
+		return nil, err
+	}
+	entries := append([]RegistryEntry(nil), index.Entries...)
+	sortRegistryEntries(entries)
+	return entries, nil
+}
+
+func ShowRegistrySkill(skill, registry string) ([]RegistryEntry, error) {
+	if strings.TrimSpace(skill) == "" || strings.Contains(skill, "@") || strings.HasPrefix(skill, "sha256:") {
+		return nil, NewError(ErrInvalidInput, "registry show requires skill name")
+	}
+	entries, err := ListRegistryEntries(registry)
+	if err != nil {
+		return nil, err
+	}
+	var matched []RegistryEntry
+	for _, entry := range entries {
+		if entry.Skill == skill {
+			matched = append(matched, entry)
+		}
+	}
+	if len(matched) == 0 {
+		return nil, NewError(ErrNotFound, "registry skill not found: "+skill)
+	}
+	sort.Slice(matched, func(i, j int) bool {
+		if matched[i].Version != matched[j].Version {
+			return matched[i].Version < matched[j].Version
+		}
+		return matched[i].Digest < matched[j].Digest
+	})
+	return matched, nil
+}
+
+func ResolveRegistryEntry(reference, registry string) (RegistryEntry, error) {
+	registryRoot, err := registryRoot(registry)
+	if err != nil {
+		return RegistryEntry{}, err
+	}
+	index, err := loadRegistryIndex(registryRoot)
+	if err != nil {
+		return RegistryEntry{}, err
+	}
+	return findRegistryEntry(index, reference)
+}
+
 func ResolveRegistryReference(reference, registry string) (string, error) {
 	if pathExists(reference) {
 		abs, err := filepath.Abs(reference)
@@ -108,15 +160,7 @@ func PublishArtifact(options PublishOptions) (RegistryEntry, error) {
 		return RegistryEntry{}, err
 	}
 	index.Entries = append(index.Entries, entry)
-	sort.Slice(index.Entries, func(i, j int) bool {
-		if index.Entries[i].Skill != index.Entries[j].Skill {
-			return index.Entries[i].Skill < index.Entries[j].Skill
-		}
-		if index.Entries[i].Version != index.Entries[j].Version {
-			return index.Entries[i].Version < index.Entries[j].Version
-		}
-		return index.Entries[i].Digest < index.Entries[j].Digest
-	})
+	sortRegistryEntries(index.Entries)
 	if err := writeRegistryIndex(registryRoot, index); err != nil {
 		return RegistryEntry{}, err
 	}
@@ -227,6 +271,18 @@ func findRegistryEntry(index RegistryIndex, reference string) (RegistryEntry, er
 
 func registryArtifactRelPath(skill, version, digest string) string {
 	return filepath.Join("artifacts", filepath.FromSlash(skill), version, strings.ReplaceAll(digest, ":", "-")+".agenix")
+}
+
+func sortRegistryEntries(entries []RegistryEntry) {
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Skill != entries[j].Skill {
+			return entries[i].Skill < entries[j].Skill
+		}
+		if entries[i].Version != entries[j].Version {
+			return entries[i].Version < entries[j].Version
+		}
+		return entries[i].Digest < entries[j].Digest
+	})
 }
 
 func looksLikeRegistryReference(value string) bool {

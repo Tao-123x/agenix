@@ -112,13 +112,15 @@ func run(args []string) error {
 		}
 		fmt.Println(formatArtifactSummary(summary))
 		return nil
+	case "registry":
+		return runRegistry(args[1:])
 	default:
 		return usage()
 	}
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
 }
 
 func formatRunResult(status, runID, tracePath string, changedFiles, verifierSummary []string) string {
@@ -131,6 +133,14 @@ func formatArtifactSummary(summary agenix.ArtifactSummary) string {
 
 func formatRegistryEntry(entry agenix.RegistryEntry) string {
 	return fmt.Sprintf("skill=%s version=%s digest=%s registry_artifact=%s published_at=%s published_by=%s source_commit=%s", entry.Skill, entry.Version, entry.Digest, entry.ArtifactPath, entry.PublishedAt.Format(time.RFC3339), entry.PublishedBy, entry.SourceCommit)
+}
+
+func formatRegistryEntries(entries []agenix.RegistryEntry) string {
+	lines := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		lines = append(lines, formatRegistryEntry(entry))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func parsePublishArgs(args []string) (string, string, error) {
@@ -166,6 +176,75 @@ func parsePullArgs(args []string) (string, string, string, error) {
 }
 
 func parseTargetWithOptionalRegistry(args []string) (string, string, error) {
+	if len(args) != 1 && len(args) != 3 {
+		return "", "", usage()
+	}
+	target := args[0]
+	if len(args) == 1 {
+		return target, "", nil
+	}
+	if args[1] != "--registry" {
+		return "", "", usage()
+	}
+	return target, args[2], nil
+}
+
+func runRegistry(args []string) error {
+	if len(args) < 1 {
+		return usage()
+	}
+	switch args[0] {
+	case "list":
+		registryRoot, err := parseRegistryOnlyArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		entries, err := agenix.ListRegistryEntries(registryRoot)
+		if err != nil {
+			return err
+		}
+		if len(entries) != 0 {
+			fmt.Println(formatRegistryEntries(entries))
+		}
+		return nil
+	case "show":
+		skill, registryRoot, err := parseRegistryLookupArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		entries, err := agenix.ShowRegistrySkill(skill, registryRoot)
+		if err != nil {
+			return err
+		}
+		fmt.Println(formatRegistryEntries(entries))
+		return nil
+	case "resolve":
+		ref, registryRoot, err := parseRegistryLookupArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		entry, err := agenix.ResolveRegistryEntry(ref, registryRoot)
+		if err != nil {
+			return err
+		}
+		fmt.Println(formatRegistryEntry(entry))
+		return nil
+	default:
+		return usage()
+	}
+}
+
+func parseRegistryOnlyArgs(args []string) (string, error) {
+	if len(args) == 0 {
+		return "", nil
+	}
+	if len(args) == 2 && args[0] == "--registry" {
+		return args[1], nil
+	}
+	return "", usage()
+}
+
+func parseRegistryLookupArgs(args []string) (string, string, error) {
 	if len(args) != 1 && len(args) != 3 {
 		return "", "", usage()
 	}

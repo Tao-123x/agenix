@@ -126,6 +126,18 @@ same `skill@version`, Agenix rejects it and forces a version bump so
 also record `published_at`, `published_by`, and the artifact `source_commit`
 when available.
 
+Registry discovery stays explicit:
+
+```bash
+go run ./cmd/agenix registry list
+go run ./cmd/agenix registry show repo.fix_test_failure
+go run ./cmd/agenix registry resolve repo.fix_test_failure@0.1.0
+```
+
+`registry list` prints every indexed entry, `registry show` filters by exact
+skill name, and `registry resolve` prints the exact indexed entry for
+`skill@version` or `sha256:...`.
+
 Direct registry references also work for `inspect` and `run`:
 
 ```bash
@@ -134,7 +146,7 @@ go run ./cmd/agenix run repo.fix_test_failure@0.1.0
 ```
 
 If you need a non-default registry root, pass `--registry <dir>` to
-`publish`, `pull`, `inspect`, or `run`.
+`publish`, `pull`, `inspect`, `run`, or `registry`.
 
 Run the read-only analysis demo:
 

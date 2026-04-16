@@ -116,6 +116,8 @@ registry semantics are intentionally narrow:
 
 - `publish` is explicit; `build` does not imply publish.
 - `pull` is explicit when the caller wants a copied local capsule.
+- `registry list`, `registry show <skill>`, and `registry resolve <ref>` expose
+  explicit discovery without changing retrieval semantics
 - `run` and `inspect` may resolve exact registry references directly.
 - the registry rejects publishing a different digest for an already published
   `skill@version`

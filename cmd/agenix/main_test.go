@@ -500,3 +500,126 @@ func TestCLIValidateRejectsInvalidTrace(t *testing.T) {
 		t.Fatalf("unexpected validate error: %s", out)
 	}
 }
+
+func TestCLIRegistryListShowAndResolve(t *testing.T) {
+	root := t.TempDir()
+	registry := filepath.Join(root, "registry")
+
+	firstSkill := filepath.Join(root, "first-skill")
+	if err := os.MkdirAll(firstSkill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	firstManifest := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.alpha
+version: 0.1.0
+description: First registry entry.
+tools:
+  - fs
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+	if err := os.WriteFile(filepath.Join(firstSkill, "manifest.yaml"), []byte(firstManifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(firstSkill, "README.md"), []byte("# alpha\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	secondSkill := filepath.Join(root, "second-skill")
+	if err := os.MkdirAll(secondSkill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	secondManifest := strings.Replace(strings.Replace(firstManifest, "repo.alpha", "repo.beta", 1), "0.1.0", "0.2.0", 1)
+	if err := os.WriteFile(filepath.Join(secondSkill, "manifest.yaml"), []byte(secondManifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(secondSkill, "README.md"), []byte("# beta\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	firstArtifact := filepath.Join(root, "alpha.agenix")
+	if out, err := exec.Command("go", "run", ".", "build", firstSkill, "-o", firstArtifact).CombinedOutput(); err != nil {
+		t.Fatalf("build alpha failed: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("go", "run", ".", "publish", firstArtifact, "--registry", registry).CombinedOutput(); err != nil {
+		t.Fatalf("publish alpha failed: %v\n%s", err, out)
+	}
+
+	secondArtifact := filepath.Join(root, "beta.agenix")
+	if out, err := exec.Command("go", "run", ".", "build", secondSkill, "-o", secondArtifact).CombinedOutput(); err != nil {
+		t.Fatalf("build beta failed: %v\n%s", err, out)
+	}
+	publishBetaOut, err := exec.Command("go", "run", ".", "publish", secondArtifact, "--registry", registry).CombinedOutput()
+	if err != nil {
+		t.Fatalf("publish beta failed: %v\n%s", err, publishBetaOut)
+	}
+
+	listOut, err := exec.Command("go", "run", ".", "registry", "list", "--registry", registry).CombinedOutput()
+	if err != nil {
+		t.Fatalf("registry list failed: %v\n%s", err, listOut)
+	}
+	listText := string(listOut)
+	if !strings.Contains(listText, "skill=repo.alpha version=0.1.0") || !strings.Contains(listText, "skill=repo.beta version=0.2.0") {
+		t.Fatalf("unexpected registry list output: %s", listText)
+	}
+
+	showOut, err := exec.Command("go", "run", ".", "registry", "show", "repo.beta", "--registry", registry).CombinedOutput()
+	if err != nil {
+		t.Fatalf("registry show failed: %v\n%s", err, showOut)
+	}
+	if !strings.Contains(string(showOut), "skill=repo.beta version=0.2.0") {
+		t.Fatalf("unexpected registry show output: %s", showOut)
+	}
+
+	digest := extractField(string(publishBetaOut), "digest")
+	resolveOut, err := exec.Command("go", "run", ".", "registry", "resolve", digest, "--registry", registry).CombinedOutput()
+	if err != nil {
+		t.Fatalf("registry resolve failed: %v\n%s", err, resolveOut)
+	}
+	if !strings.Contains(string(resolveOut), "registry_artifact=") || !strings.Contains(string(resolveOut), "digest="+digest) {
+		t.Fatalf("unexpected registry resolve output: %s", resolveOut)
+	}
+}
+
+func TestCLIRegistryCommandFailures(t *testing.T) {
+	root := t.TempDir()
+	registry := filepath.Join(root, "registry")
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "show-missing", args: []string{"registry", "show", "repo.missing", "--registry", registry}, want: "error=NotFound"},
+		{name: "resolve-invalid", args: []string{"registry", "resolve", "repo.missing", "--registry", registry}, want: "error=InvalidInput"},
+		{name: "resolve-missing", args: []string{"registry", "resolve", "repo.missing@0.1.0", "--registry", registry}, want: "error=NotFound"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			commandArgs := append([]string{"run", "."}, tt.args...)
+			out, err := exec.Command("go", commandArgs...).CombinedOutput()
+			if err == nil {
+				t.Fatalf("expected registry command failure, got success: %s", out)
+			}
+			if !strings.Contains(string(out), tt.want) {
+				t.Fatalf("expected %q in %s", tt.want, out)
+			}
+		})
+	}
+}
+
+func extractField(output, key string) string {
+	for _, field := range strings.Fields(output) {
+		prefix := key + "="
+		if strings.HasPrefix(field, prefix) {
+			return strings.TrimPrefix(field, prefix)
+		}
+	}
+	return ""
+}
