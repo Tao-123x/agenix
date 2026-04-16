@@ -1,5 +1,7 @@
 # Agentfile Specification (v0.1 Draft)
 
+[English](agentfile.md) | [简体中文](agentfile.zh-CN.md)
+
 The Agentfile describes how to build and run an agent package. It is analogous to a `Dockerfile` but for skills and agents.
 
 ## Key sections

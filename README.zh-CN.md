@@ -67,6 +67,19 @@ Agenix 定义了五层：
   - `repo.analyze_test_failures/`：canonical demo，只读分析失败测试
   - `repo.apply_small_refactor/`：canonical demo，受限写入的小型重构
 
+## 双语文档入口
+
+以下核心入口都已提供英文版和简体中文版：
+
+- [README](README.md) / [README.zh-CN](README.zh-CN.md)
+- [Agenix Spec](specs/agenix-spec-v0.1.md) / [Agenix Spec.zh-CN](specs/agenix-spec-v0.1.zh-CN.md)
+- [Skill Manifest](specs/skill-manifest.md) / [Skill Manifest.zh-CN](specs/skill-manifest.zh-CN.md)
+- [Agentfile](specs/agentfile.md) / [Agentfile.zh-CN](specs/agentfile.zh-CN.md)
+- [Tool Contracts](specs/tool-contract.md) / [Tool Contracts.zh-CN](specs/tool-contract.zh-CN.md)
+- [Capabilities](specs/capability.md) / [Capabilities.zh-CN](specs/capability.zh-CN.md)
+- [Trace](specs/trace.md) / [Trace.zh-CN](specs/trace.zh-CN.md)
+- [Policy](specs/policy.md) / [Policy.zh-CN](specs/policy.zh-CN.md)
+
 ## Runtime v0 快速开始
 
 前置条件：

@@ -67,6 +67,19 @@ Agenix defines five layers:
   - `repo.analyze_test_failures/` — canonical demo: read-only failure analysis
   - `repo.apply_small_refactor/` — canonical demo: constrained write refactor
 
+## Bilingual Docs
+
+Core entrypoints with English and Simplified Chinese versions:
+
+- [README](README.md) / [README.zh-CN](README.zh-CN.md)
+- [Agenix Spec](specs/agenix-spec-v0.1.md) / [Agenix Spec.zh-CN](specs/agenix-spec-v0.1.zh-CN.md)
+- [Skill Manifest](specs/skill-manifest.md) / [Skill Manifest.zh-CN](specs/skill-manifest.zh-CN.md)
+- [Agentfile](specs/agentfile.md) / [Agentfile.zh-CN](specs/agentfile.zh-CN.md)
+- [Tool Contracts](specs/tool-contract.md) / [Tool Contracts.zh-CN](specs/tool-contract.zh-CN.md)
+- [Capabilities](specs/capability.md) / [Capabilities.zh-CN](specs/capability.zh-CN.md)
+- [Trace](specs/trace.md) / [Trace.zh-CN](specs/trace.zh-CN.md)
+- [Policy](specs/policy.md) / [Policy.zh-CN](specs/policy.zh-CN.md)
+
 ## Runtime v0 quickstart
 
 Prerequisites:
