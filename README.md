@@ -1,5 +1,7 @@
 # Agenix
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 **Portable runtime for reusable, verifiable, cross-model agent skills.**
 
 > Docker made software portable.
