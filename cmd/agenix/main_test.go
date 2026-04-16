@@ -84,7 +84,7 @@ verifiers:
 	if err != nil {
 		t.Fatalf("inspect failed: %v\n%s", err, inspectOut)
 	}
-	if !strings.Contains(string(inspectOut), "skill=repo.fix_test_failure") || !strings.Contains(string(inspectOut), "files=2") {
+	if !strings.Contains(string(inspectOut), "skill=repo.fix_test_failure") || !strings.Contains(string(inspectOut), "files=2") || !strings.Contains(string(inspectOut), "built_by=") {
 		t.Fatalf("unexpected inspect output: %s", inspectOut)
 	}
 }

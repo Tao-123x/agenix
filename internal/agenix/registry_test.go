@@ -28,6 +28,9 @@ func TestPublishArtifactCopiesCapsuleAndIndexesIt(t *testing.T) {
 	if entry.Digest == "" || entry.ArtifactPath == "" {
 		t.Fatalf("missing digest/path: %#v", entry)
 	}
+	if entry.PublishedAt.IsZero() || entry.PublishedBy == "" {
+		t.Fatalf("missing registry provenance: %#v", entry)
+	}
 	if _, err := os.Stat(entry.ArtifactPath); err != nil {
 		t.Fatalf("published artifact missing: %v", err)
 	}
@@ -43,6 +46,9 @@ func TestPublishArtifactCopiesCapsuleAndIndexesIt(t *testing.T) {
 	}
 	if len(index.Entries) != 1 || index.Entries[0].Digest != entry.Digest {
 		t.Fatalf("unexpected index: %#v", index)
+	}
+	if index.Entries[0].PublishedBy == "" {
+		t.Fatalf("missing index published_by: %#v", index)
 	}
 }
 

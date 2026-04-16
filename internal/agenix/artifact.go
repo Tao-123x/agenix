@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -23,20 +24,31 @@ type BuildOptions struct {
 }
 
 type ArtifactSummary struct {
-	Skill     string `json:"skill"`
-	Version   string `json:"version"`
-	Digest    string `json:"digest"`
-	FileCount int    `json:"file_count"`
-	Path      string `json:"path"`
+	Skill        string    `json:"skill"`
+	Version      string    `json:"version"`
+	Digest       string    `json:"digest"`
+	FileCount    int       `json:"file_count"`
+	Path         string    `json:"path"`
+	CreatedAt    time.Time `json:"created_at,omitempty"`
+	BuiltBy      string    `json:"built_by,omitempty"`
+	BuildHost    string    `json:"build_host,omitempty"`
+	SourceCommit string    `json:"source_commit,omitempty"`
 }
 
 type ArtifactLock struct {
 	ArtifactVersion string             `json:"artifact_version"`
 	CreatedAt       time.Time          `json:"created_at"`
 	Skill           ArtifactSkill      `json:"skill"`
+	Provenance      ArtifactProvenance `json:"provenance,omitempty"`
 	ManifestDigest  string             `json:"manifest_digest"`
 	ArtifactDigest  string             `json:"artifact_digest"`
 	Files           []ArtifactFileLock `json:"files"`
+}
+
+type ArtifactProvenance struct {
+	BuiltBy      string `json:"built_by,omitempty"`
+	BuildHost    string `json:"build_host,omitempty"`
+	SourceCommit string `json:"source_commit,omitempty"`
 }
 
 type ArtifactSkill struct {
@@ -81,6 +93,7 @@ func BuildArtifact(options BuildOptions) (ArtifactSummary, error) {
 		ArtifactVersion: ArtifactVersion,
 		CreatedAt:       time.Now().UTC(),
 		Skill:           ArtifactSkill{Name: manifest.Name, Version: manifest.Version},
+		Provenance:      collectArtifactProvenance(skillDir),
 		ManifestDigest:  manifestDigest,
 		Files: append([]ArtifactFileLock{{
 			Path:   "manifest.yaml",
@@ -103,7 +116,17 @@ func BuildArtifact(options BuildOptions) (ArtifactSummary, error) {
 	if err := os.WriteFile(outputPath, content, 0o600); err != nil {
 		return ArtifactSummary{}, WrapError(ErrDriverError, "write artifact", err)
 	}
-	return ArtifactSummary{Skill: manifest.Name, Version: manifest.Version, Digest: digest, FileCount: len(lock.Files), Path: outputPath}, nil
+	return ArtifactSummary{
+		Skill:        manifest.Name,
+		Version:      manifest.Version,
+		Digest:       digest,
+		FileCount:    len(lock.Files),
+		Path:         outputPath,
+		CreatedAt:    lock.CreatedAt,
+		BuiltBy:      lock.Provenance.BuiltBy,
+		BuildHost:    lock.Provenance.BuildHost,
+		SourceCommit: lock.Provenance.SourceCommit,
+	}, nil
 }
 
 func InspectArtifact(path string) (ArtifactSummary, error) {
@@ -120,11 +143,15 @@ func InspectArtifact(path string) (ArtifactSummary, error) {
 	}
 	abs, _ := filepath.Abs(path)
 	return ArtifactSummary{
-		Skill:     lock.Skill.Name,
-		Version:   lock.Skill.Version,
-		Digest:    digest,
-		FileCount: len(lock.Files),
-		Path:      abs,
+		Skill:        lock.Skill.Name,
+		Version:      lock.Skill.Version,
+		Digest:       digest,
+		FileCount:    len(lock.Files),
+		Path:         abs,
+		CreatedAt:    lock.CreatedAt,
+		BuiltBy:      lock.Provenance.BuiltBy,
+		BuildHost:    lock.Provenance.BuildHost,
+		SourceCommit: lock.Provenance.SourceCommit,
 	}, nil
 }
 
@@ -188,12 +215,50 @@ func MaterializeArtifact(path, workspaceDir string) (string, ArtifactSummary, er
 		return "", ArtifactSummary{}, WrapError(ErrInvalidInput, "materialized artifact missing manifest", err)
 	}
 	return manifestPath, ArtifactSummary{
-		Skill:     lock.Skill.Name,
-		Version:   lock.Skill.Version,
-		Digest:    digest,
-		FileCount: len(lock.Files),
-		Path:      path,
+		Skill:        lock.Skill.Name,
+		Version:      lock.Skill.Version,
+		Digest:       digest,
+		FileCount:    len(lock.Files),
+		Path:         path,
+		CreatedAt:    lock.CreatedAt,
+		BuiltBy:      lock.Provenance.BuiltBy,
+		BuildHost:    lock.Provenance.BuildHost,
+		SourceCommit: lock.Provenance.SourceCommit,
 	}, nil
+}
+
+func collectArtifactProvenance(skillDir string) ArtifactProvenance {
+	return ArtifactProvenance{
+		BuiltBy:      currentActor(),
+		BuildHost:    currentHost(),
+		SourceCommit: gitCommitFor(skillDir),
+	}
+}
+
+func currentActor() string {
+	for _, key := range []string{"USER", "USERNAME"} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return "unknown"
+}
+
+func currentHost() string {
+	host, err := os.Hostname()
+	if err != nil || strings.TrimSpace(host) == "" {
+		return "unknown"
+	}
+	return host
+}
+
+func gitCommitFor(dir string) string {
+	cmd := exec.Command("git", "-C", dir, "rev-parse", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
 }
 
 func collectArtifactFiles(skillDir string) ([]ArtifactFileLock, error) {

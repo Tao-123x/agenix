@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"agenix/internal/agenix"
 )
@@ -125,11 +126,11 @@ func formatRunResult(status, runID, tracePath string, changedFiles, verifierSumm
 }
 
 func formatArtifactSummary(summary agenix.ArtifactSummary) string {
-	return fmt.Sprintf("skill=%s version=%s files=%d digest=%s artifact=%s", summary.Skill, summary.Version, summary.FileCount, summary.Digest, summary.Path)
+	return fmt.Sprintf("skill=%s version=%s files=%d digest=%s artifact=%s created_at=%s built_by=%s build_host=%s source_commit=%s", summary.Skill, summary.Version, summary.FileCount, summary.Digest, summary.Path, summary.CreatedAt.Format(time.RFC3339), summary.BuiltBy, summary.BuildHost, summary.SourceCommit)
 }
 
 func formatRegistryEntry(entry agenix.RegistryEntry) string {
-	return fmt.Sprintf("skill=%s version=%s digest=%s registry_artifact=%s", entry.Skill, entry.Version, entry.Digest, entry.ArtifactPath)
+	return fmt.Sprintf("skill=%s version=%s digest=%s registry_artifact=%s published_at=%s published_by=%s source_commit=%s", entry.Skill, entry.Version, entry.Digest, entry.ArtifactPath, entry.PublishedAt.Format(time.RFC3339), entry.PublishedBy, entry.SourceCommit)
 }
 
 func parsePublishArgs(args []string) (string, string, error) {

@@ -27,6 +27,8 @@ type RegistryEntry struct {
 	Digest       string    `json:"digest"`
 	ArtifactPath string    `json:"artifact_path"`
 	PublishedAt  time.Time `json:"published_at"`
+	PublishedBy  string    `json:"published_by,omitempty"`
+	SourceCommit string    `json:"source_commit,omitempty"`
 }
 
 type RegistryIndex struct {
@@ -99,6 +101,8 @@ func PublishArtifact(options PublishOptions) (RegistryEntry, error) {
 		Digest:       summary.Digest,
 		ArtifactPath: filepath.Join(registryRoot, registryArtifactRelPath(summary.Skill, summary.Version, summary.Digest)),
 		PublishedAt:  time.Now().UTC(),
+		PublishedBy:  currentActor(),
+		SourceCommit: summary.SourceCommit,
 	}
 	if err := copyFile(artifactPath, entry.ArtifactPath); err != nil {
 		return RegistryEntry{}, err

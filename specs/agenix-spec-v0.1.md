@@ -99,7 +99,8 @@ agenix.lock.json
 
 The capsule is a gzip-compressed tar file. `agenix.lock.json` is the minimum
 provenance record for v0.1: artifact version, skill identity, manifest digest,
-payload file digests, creation timestamp, and artifact digest.
+payload file digests, creation timestamp, builder identity, optional source
+commit, and artifact digest.
 
 Artifact integrity in v0.1 is local and lockfile-based. The lock records a
 sha256 digest for `manifest.yaml` and each materialized `files/...` payload. On
@@ -118,6 +119,8 @@ registry semantics are intentionally narrow:
 - `run` and `inspect` may resolve exact registry references directly.
 - the registry rejects publishing a different digest for an already published
   `skill@version`
+- registry entries record publish time, publisher identity, and optional source
+  commit metadata from the artifact
 - the registry is local only and does not define signatures, trust policy, or
   remote distribution semantics
 

@@ -96,8 +96,10 @@ go run ./cmd/agenix run repo.fix_test_failure.agenix
 
 The artifact is a gzip-compressed tar capsule with `manifest.yaml`,
 `files/...`, and `agenix.lock.json`. The lockfile records the skill identity,
-source file digests, and artifact digest so the capsule can be moved and
-inspected without trusting the original directory layout. Running a capsule
+source file digests, creation timestamp, builder provenance, and artifact
+digest so the capsule can be moved and inspected without trusting the original
+directory layout. `inspect` now reports `created_at`, `built_by`,
+`build_host`, and `source_commit` when available. Running a capsule
 materializes it under the run directory as a workspace, preserving
 manifest-relative paths for verifier replay.
 
@@ -120,7 +122,9 @@ The default registry root is `~/.agenix/registry`. `publish` is explicit and
 idempotent for the same digest. If you try to publish a different digest for the
 same `skill@version`, Agenix rejects it and forces a version bump so
 `skill@version` remains deterministic. `pull` currently accepts either
-`skill@version` or a full `sha256:...` digest reference.
+`skill@version` or a full `sha256:...` digest reference. Registry index entries
+also record `published_at`, `published_by`, and the artifact `source_commit`
+when available.
 
 Direct registry references also work for `inspect` and `run`:
 

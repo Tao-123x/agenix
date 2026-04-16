@@ -60,6 +60,12 @@ func TestBuildArtifactCreatesPortableCapsule(t *testing.T) {
 	if len(lock.Files) != 4 {
 		t.Fatalf("lock file digest count = %d", len(lock.Files))
 	}
+	if lock.CreatedAt.IsZero() {
+		t.Fatalf("missing created_at: %#v", lock)
+	}
+	if lock.Provenance.BuiltBy == "" || lock.Provenance.BuildHost == "" {
+		t.Fatalf("missing build provenance: %#v", lock.Provenance)
+	}
 }
 
 func TestInspectArtifactReadsCapsuleSummary(t *testing.T) {
@@ -80,6 +86,12 @@ func TestInspectArtifactReadsCapsuleSummary(t *testing.T) {
 	}
 	if summary.FileCount != 4 {
 		t.Fatalf("FileCount = %d", summary.FileCount)
+	}
+	if summary.CreatedAt.IsZero() {
+		t.Fatalf("missing summary created_at: %#v", summary)
+	}
+	if summary.BuiltBy == "" || summary.BuildHost == "" {
+		t.Fatalf("missing summary provenance: %#v", summary)
 	}
 }
 
