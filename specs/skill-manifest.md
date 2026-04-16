@@ -1,5 +1,7 @@
 # Skill Manifest (v0.1 Draft)
 
+[English](skill-manifest.md) | [简体中文](skill-manifest.zh-CN.md)
+
 ## Purpose
 
 Describe a reusable agent capability as a portable, verifiable package.

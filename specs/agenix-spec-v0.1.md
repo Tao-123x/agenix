@@ -1,5 +1,7 @@
 # Agenix Specification v0.1 (Draft)
 
+[English](agenix-spec-v0.1.md) | [简体中文](agenix-spec-v0.1.zh-CN.md)
+
 ## 1. Introduction
 
 *Purpose:* make agent skills portable, verifiable, replayable.
