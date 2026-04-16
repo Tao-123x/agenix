@@ -118,6 +118,8 @@ registry semantics are intentionally narrow:
 - `pull` is explicit when the caller wants a copied local capsule.
 - `registry list`, `registry show <skill>`, and `registry resolve <ref>` expose
   explicit discovery without changing retrieval semantics
+- registry discovery orders valid semver versions semantically within a skill;
+  non-semver strings remain allowed but sort after valid semver values
 - `run` and `inspect` may resolve exact registry references directly.
 - the registry rejects publishing a different digest for an already published
   `skill@version`

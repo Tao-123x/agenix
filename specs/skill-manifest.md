@@ -149,4 +149,6 @@ The parser now understands this subset of `capabilities.requires`:
 
 The validator intentionally does not yet validate semver format, permission
 scope completeness, input/output property schemas, verifier type-specific
-fields beyond the implemented minimum, or recovery settings.
+fields beyond the implemented minimum, or recovery settings. Registry
+discovery still treats valid semver values specially for ordering; this is a
+sorting contract, not a manifest validation guarantee.

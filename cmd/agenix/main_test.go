@@ -614,6 +614,69 @@ func TestCLIRegistryCommandFailures(t *testing.T) {
 	}
 }
 
+func TestCLIRegistryShowSortsVersionsSemantically(t *testing.T) {
+	root := t.TempDir()
+	registry := filepath.Join(root, "registry")
+
+	makeSkill := func(dir, version string) string {
+		skillDir := filepath.Join(root, dir)
+		if err := os.MkdirAll(skillDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		manifest := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.semver
+version: ` + version + `
+description: Semver ordering entry.
+tools:
+  - fs
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+		if err := os.WriteFile(filepath.Join(skillDir, "manifest.yaml"), []byte(manifest), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(skillDir, "README.md"), []byte("# semver\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return skillDir
+	}
+
+	first := makeSkill("skill-v10", "0.10.0")
+	firstArtifact := filepath.Join(root, "v10.agenix")
+	if out, err := exec.Command("go", "run", ".", "build", first, "-o", firstArtifact).CombinedOutput(); err != nil {
+		t.Fatalf("build v10 failed: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("go", "run", ".", "publish", firstArtifact, "--registry", registry).CombinedOutput(); err != nil {
+		t.Fatalf("publish v10 failed: %v\n%s", err, out)
+	}
+
+	second := makeSkill("skill-v2", "0.2.0")
+	secondArtifact := filepath.Join(root, "v2.agenix")
+	if out, err := exec.Command("go", "run", ".", "build", second, "-o", secondArtifact).CombinedOutput(); err != nil {
+		t.Fatalf("build v2 failed: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("go", "run", ".", "publish", secondArtifact, "--registry", registry).CombinedOutput(); err != nil {
+		t.Fatalf("publish v2 failed: %v\n%s", err, out)
+	}
+
+	showOut, err := exec.Command("go", "run", ".", "registry", "show", "repo.semver", "--registry", registry).CombinedOutput()
+	if err != nil {
+		t.Fatalf("registry show failed: %v\n%s", err, showOut)
+	}
+	text := string(showOut)
+	firstPos := strings.Index(text, "version=0.2.0")
+	secondPos := strings.Index(text, "version=0.10.0")
+	if firstPos == -1 || secondPos == -1 || firstPos > secondPos {
+		t.Fatalf("unexpected semver show order: %s", text)
+	}
+}
+
 func extractField(output, key string) string {
 	for _, field := range strings.Fields(output) {
 		prefix := key + "="

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -67,8 +68,8 @@ func ShowRegistrySkill(skill, registry string) ([]RegistryEntry, error) {
 		return nil, NewError(ErrNotFound, "registry skill not found: "+skill)
 	}
 	sort.Slice(matched, func(i, j int) bool {
-		if matched[i].Version != matched[j].Version {
-			return matched[i].Version < matched[j].Version
+		if compare := compareRegistryVersions(matched[i].Version, matched[j].Version); compare != 0 {
+			return compare < 0
 		}
 		return matched[i].Digest < matched[j].Digest
 	})
@@ -278,11 +279,191 @@ func sortRegistryEntries(entries []RegistryEntry) {
 		if entries[i].Skill != entries[j].Skill {
 			return entries[i].Skill < entries[j].Skill
 		}
-		if entries[i].Version != entries[j].Version {
-			return entries[i].Version < entries[j].Version
+		if compare := compareRegistryVersions(entries[i].Version, entries[j].Version); compare != 0 {
+			return compare < 0
 		}
 		return entries[i].Digest < entries[j].Digest
 	})
+}
+
+type semverVersion struct {
+	major      uint64
+	minor      uint64
+	patch      uint64
+	prerelease string
+}
+
+func compareRegistryVersions(left, right string) int {
+	leftVersion, leftOK := parseSemverVersion(left)
+	rightVersion, rightOK := parseSemverVersion(right)
+	switch {
+	case leftOK && rightOK:
+		return compareSemverVersions(leftVersion, rightVersion)
+	case leftOK && !rightOK:
+		return -1
+	case !leftOK && rightOK:
+		return 1
+	}
+	switch {
+	case left < right:
+		return -1
+	case left > right:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func parseSemverVersion(value string) (semverVersion, bool) {
+	normalized := strings.TrimPrefix(strings.TrimSpace(value), "v")
+	if normalized == "" {
+		return semverVersion{}, false
+	}
+	coreAndBuild := strings.SplitN(normalized, "+", 2)
+	coreAndPre := strings.SplitN(coreAndBuild[0], "-", 2)
+	parts := strings.Split(coreAndPre[0], ".")
+	if len(parts) != 3 {
+		return semverVersion{}, false
+	}
+	major, ok := parseSemverUint(parts[0])
+	if !ok {
+		return semverVersion{}, false
+	}
+	minor, ok := parseSemverUint(parts[1])
+	if !ok {
+		return semverVersion{}, false
+	}
+	patch, ok := parseSemverUint(parts[2])
+	if !ok {
+		return semverVersion{}, false
+	}
+	version := semverVersion{
+		major: major,
+		minor: minor,
+		patch: patch,
+	}
+	if len(coreAndPre) == 2 {
+		if !validPrerelease(coreAndPre[1]) {
+			return semverVersion{}, false
+		}
+		version.prerelease = coreAndPre[1]
+	}
+	return version, true
+}
+
+func parseSemverUint(value string) (uint64, bool) {
+	if value == "" {
+		return 0, false
+	}
+	if len(value) > 1 && value[0] == '0' {
+		return 0, false
+	}
+	number, err := strconv.ParseUint(value, 10, 64)
+	return number, err == nil
+}
+
+func validPrerelease(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, identifier := range strings.Split(value, ".") {
+		if identifier == "" {
+			return false
+		}
+		for _, char := range identifier {
+			if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || char == '-' {
+				continue
+			}
+			return false
+		}
+		if isNumericIdentifier(identifier) && len(identifier) > 1 && identifier[0] == '0' {
+			return false
+		}
+	}
+	return true
+}
+
+func compareSemverVersions(left, right semverVersion) int {
+	if left.major != right.major {
+		return compareUint64(left.major, right.major)
+	}
+	if left.minor != right.minor {
+		return compareUint64(left.minor, right.minor)
+	}
+	if left.patch != right.patch {
+		return compareUint64(left.patch, right.patch)
+	}
+	return comparePrerelease(left.prerelease, right.prerelease)
+}
+
+func compareUint64(left, right uint64) int {
+	switch {
+	case left < right:
+		return -1
+	case left > right:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func comparePrerelease(left, right string) int {
+	switch {
+	case left == "" && right == "":
+		return 0
+	case left == "":
+		return 1
+	case right == "":
+		return -1
+	}
+	leftParts := strings.Split(left, ".")
+	rightParts := strings.Split(right, ".")
+	limit := len(leftParts)
+	if len(rightParts) < limit {
+		limit = len(rightParts)
+	}
+	for index := 0; index < limit; index++ {
+		leftPart := leftParts[index]
+		rightPart := rightParts[index]
+		leftNumeric := isNumericIdentifier(leftPart)
+		rightNumeric := isNumericIdentifier(rightPart)
+		switch {
+		case leftNumeric && rightNumeric:
+			leftValue, _ := strconv.ParseUint(leftPart, 10, 64)
+			rightValue, _ := strconv.ParseUint(rightPart, 10, 64)
+			if compare := compareUint64(leftValue, rightValue); compare != 0 {
+				return compare
+			}
+		case leftNumeric && !rightNumeric:
+			return -1
+		case !leftNumeric && rightNumeric:
+			return 1
+		case leftPart < rightPart:
+			return -1
+		case leftPart > rightPart:
+			return 1
+		}
+	}
+	switch {
+	case len(leftParts) < len(rightParts):
+		return -1
+	case len(leftParts) > len(rightParts):
+		return 1
+	default:
+		return 0
+	}
+}
+
+func isNumericIdentifier(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, char := range value {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func looksLikeRegistryReference(value string) bool {

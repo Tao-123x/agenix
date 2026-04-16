@@ -224,6 +224,9 @@ func TestResolveRegistryEntryBySkillReturnsAllVersions(t *testing.T) {
 	registryRoot := filepath.Join(root, "registry")
 
 	firstSkill := writeCapsuleSkill(t, filepath.Join(root, "skill-v1"))
+	if err := rewriteManifestIdentity(filepath.Join(firstSkill, "manifest.yaml"), "repo.fix_test_failure", "0.2.0"); err != nil {
+		t.Fatal(err)
+	}
 	firstArtifact := filepath.Join(root, "v1.agenix")
 	if _, err := BuildArtifact(BuildOptions{SkillDir: firstSkill, OutputPath: firstArtifact}); err != nil {
 		t.Fatal(err)
@@ -234,7 +237,7 @@ func TestResolveRegistryEntryBySkillReturnsAllVersions(t *testing.T) {
 	}
 
 	secondSkill := writeCapsuleSkill(t, filepath.Join(root, "skill-v2"))
-	if err := rewriteManifestIdentity(filepath.Join(secondSkill, "manifest.yaml"), "repo.fix_test_failure", "0.2.0"); err != nil {
+	if err := rewriteManifestIdentity(filepath.Join(secondSkill, "manifest.yaml"), "repo.fix_test_failure", "0.10.0"); err != nil {
 		t.Fatal(err)
 	}
 	secondArtifact := filepath.Join(root, "v2.agenix")
@@ -255,6 +258,86 @@ func TestResolveRegistryEntryBySkillReturnsAllVersions(t *testing.T) {
 	}
 	if entries[0].Version != firstEntry.Version || entries[1].Version != secondEntry.Version {
 		t.Fatalf("unexpected versions: %#v", entries)
+	}
+}
+
+func TestListRegistryEntriesSortsVersionsSemantically(t *testing.T) {
+	root := t.TempDir()
+	registryRoot := filepath.Join(root, "registry")
+
+	secondSkill := writeCapsuleSkill(t, filepath.Join(root, "skill-v10"))
+	if err := rewriteManifestIdentity(filepath.Join(secondSkill, "manifest.yaml"), "repo.fix_test_failure", "0.10.0"); err != nil {
+		t.Fatal(err)
+	}
+	secondArtifact := filepath.Join(root, "v10.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: secondSkill, OutputPath: secondArtifact}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PublishArtifact(PublishOptions{ArtifactPath: secondArtifact, RegistryRoot: registryRoot}); err != nil {
+		t.Fatal(err)
+	}
+
+	firstSkill := writeCapsuleSkill(t, filepath.Join(root, "skill-v2"))
+	if err := rewriteManifestIdentity(filepath.Join(firstSkill, "manifest.yaml"), "repo.fix_test_failure", "0.2.0"); err != nil {
+		t.Fatal(err)
+	}
+	firstArtifact := filepath.Join(root, "v2.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: firstSkill, OutputPath: firstArtifact}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PublishArtifact(PublishOptions{ArtifactPath: firstArtifact, RegistryRoot: registryRoot}); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := ListRegistryEntries(registryRoot)
+	if err != nil {
+		t.Fatalf("ListRegistryEntries returned error: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("len(entries) = %d, want 2", len(entries))
+	}
+	if entries[0].Version != "0.2.0" || entries[1].Version != "0.10.0" {
+		t.Fatalf("unexpected semver order: %#v", entries)
+	}
+}
+
+func TestListRegistryEntriesPlacesInvalidVersionsAfterSemver(t *testing.T) {
+	root := t.TempDir()
+	registryRoot := filepath.Join(root, "registry")
+
+	invalidSkill := writeCapsuleSkill(t, filepath.Join(root, "skill-invalid"))
+	if err := rewriteManifestIdentity(filepath.Join(invalidSkill, "manifest.yaml"), "repo.fix_test_failure", "preview"); err != nil {
+		t.Fatal(err)
+	}
+	invalidArtifact := filepath.Join(root, "preview.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: invalidSkill, OutputPath: invalidArtifact}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PublishArtifact(PublishOptions{ArtifactPath: invalidArtifact, RegistryRoot: registryRoot}); err != nil {
+		t.Fatal(err)
+	}
+
+	validSkill := writeCapsuleSkill(t, filepath.Join(root, "skill-valid"))
+	if err := rewriteManifestIdentity(filepath.Join(validSkill, "manifest.yaml"), "repo.fix_test_failure", "0.2.0"); err != nil {
+		t.Fatal(err)
+	}
+	validArtifact := filepath.Join(root, "v2.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: validSkill, OutputPath: validArtifact}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PublishArtifact(PublishOptions{ArtifactPath: validArtifact, RegistryRoot: registryRoot}); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := ListRegistryEntries(registryRoot)
+	if err != nil {
+		t.Fatalf("ListRegistryEntries returned error: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("len(entries) = %d, want 2", len(entries))
+	}
+	if entries[0].Version != "0.2.0" || entries[1].Version != "preview" {
+		t.Fatalf("unexpected mixed version order: %#v", entries)
 	}
 }
 

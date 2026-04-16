@@ -136,7 +136,9 @@ go run ./cmd/agenix registry resolve repo.fix_test_failure@0.1.0
 
 `registry list` prints every indexed entry, `registry show` filters by exact
 skill name, and `registry resolve` prints the exact indexed entry for
-`skill@version` or `sha256:...`.
+`skill@version` or `sha256:...`. When registry entries share the same skill,
+`list` and `show` order valid semver versions semantically in ascending order.
+Non-semver strings remain accepted for now, but sort after valid semver values.
 
 Direct registry references also work for `inspect` and `run`:
 
