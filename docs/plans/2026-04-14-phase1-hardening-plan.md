@@ -92,10 +92,10 @@ Files:
 
 Steps:
 
-- [ ] Validate required manifest fields with stable error classes.
-- [ ] Validate trace minimum fields for `verify` and `replay`.
-- [ ] Add JSON schema files or equivalent runtime validators.
-- [ ] Document implemented versus planned fields.
+- [x] Validate required manifest fields with stable error classes.
+- [x] Validate trace minimum fields for `verify` and `replay`.
+- [x] Add JSON schema files or equivalent runtime validators.
+- [x] Document implemented versus planned fields.
 
 Acceptance:
 
@@ -114,10 +114,10 @@ Files:
 
 Steps:
 
-- [ ] Define exactly which bytes are covered by an artifact digest.
-- [ ] Verify digest during `inspect` and `run`.
-- [ ] Fail moved or modified artifacts with `InvalidInput` or `VerificationFailed`.
-- [ ] Preserve movable artifact behavior after integrity checks.
+- [x] Define exactly which bytes are covered by an artifact digest.
+- [x] Verify digest during `inspect` and `run`.
+- [x] Fail moved or modified artifacts with `InvalidInput` or `VerificationFailed`.
+- [x] Preserve movable artifact behavior after integrity checks.
 
 Acceptance:
 
