@@ -14,6 +14,12 @@ The next work should harden that loop before adding ecosystem surface area.
 
 ## Current State
 
+Reference runtime status:
+
+- The Agenix reference runtime v0 loop is complete and acceptance-tested.
+- The top-level acceptance command is:
+  `go test ./internal/agenix -run TestV0AcceptanceSweepForCanonicalSkills -count=1`
+
 Working runtime surface:
 
 - CLI entrypoint: [`cmd/agenix/main.go`](../../cmd/agenix/main.go)
@@ -24,11 +30,12 @@ Working runtime surface:
 
 Known gaps:
 
-- Cross-platform command and path semantics need contract tests.
-- The example set is still too narrow to prove general reuse.
-- Manifest and trace schemas are draft-level and only partially enforced.
-- Local registry exists, but digest addressing is still local-only and
-  provenance/signing are still out of scope for v0.
+- Post-v0 work should focus on sharper adapter taxonomy, provider-backed
+  adapters, and stronger provenance/registry guarantees.
+- Manifest and trace schemas are enforced at the current reference-runtime
+  minimum, but remain intentionally narrow compared with a future stable spec.
+- Local registry remains local-only; signatures and remote trust policy stay
+  out of scope for v0.
 
 ## Guiding Principles
 

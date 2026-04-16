@@ -203,6 +203,17 @@ go run ./cmd/agenix run repo.apply_small_refactor.agenix
 This skill may write only `greeter.py`. A passing run reports that single file,
 runs the tests, and runs a verifier that checks the refactor shape.
 
+Run the reference v0 acceptance sweep:
+
+```bash
+go test ./internal/agenix -run TestV0AcceptanceSweepForCanonicalSkills -count=1
+```
+
+This sweep codifies the reference-runtime claim across all three canonical
+skills. It validates manifest schema, builds portable capsules, inspects them,
+executes artifact and registry-reference runs, reruns verifiers, replays traces,
+and checks local registry publish/pull flows.
+
 ## Roadmap & Definition of Done (DoD)
 
 ### Phase 0: Specs (DoD)
