@@ -1,5 +1,7 @@
 # repo.fix_test_failure demo
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Goal:
 
 - Demonstrate portable skill execution, trace emission, and verification.

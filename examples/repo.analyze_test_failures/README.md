@@ -1,5 +1,7 @@
 # repo.analyze_test_failures demo
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Goal:
 
 - Demonstrate a read-only Agenix skill.

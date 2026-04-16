@@ -1,5 +1,7 @@
 # repo.apply_small_refactor demo
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Goal:
 
 - Demonstrate constrained write execution.
