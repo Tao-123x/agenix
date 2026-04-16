@@ -1,5 +1,7 @@
 # Capabilities (v0.1 Draft)
 
+[English](capability.md) | [简体中文](capability.zh-CN.md)
+
 ## Model capability requirements
 
 - `tool_calling` support

@@ -1,5 +1,7 @@
 # Tool Contracts (v0.1 Draft)
 
+[English](tool-contract.md) | [简体中文](tool-contract.zh-CN.md)
+
 ## Global requirements
 
 - Every tool call must produce trace entries.
