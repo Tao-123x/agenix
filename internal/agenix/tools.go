@@ -1,11 +1,7 @@
 package agenix
 
 import (
-	"bytes"
-	"context"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"time"
 )
 
@@ -103,7 +99,7 @@ func (t *Tools) ShellExec(argv []string, cwd string, timeout time.Duration) (She
 		t.trace.AddToolEvent("shell.exec", request, nil, err, time.Since(start).Milliseconds())
 		return ShellResult{}, err
 	}
-	result, err := runCommand(resolved, cwd, timeout)
+	result, err := runCommand(resolved, cwd, timeout, t.policy.permissions)
 	if err != nil {
 		t.trace.AddToolEvent("shell.exec", request, result, err, time.Since(start).Milliseconds())
 		return result, err
@@ -118,35 +114,4 @@ func (t *Tools) GitStatus(repoPath string) (ShellResult, error) {
 
 func (t *Tools) GitDiff(repoPath string) (ShellResult, error) {
 	return t.ShellExec([]string{"git", "diff", "--", "."}, repoPath, 30*time.Second)
-}
-
-func runCommand(argv []string, cwd string, timeout time.Duration) (ShellResult, error) {
-	if len(argv) == 0 {
-		return ShellResult{}, NewError(ErrInvalidInput, "empty command")
-	}
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
-	if cwd != "" {
-		abs, err := filepath.Abs(cwd)
-		if err != nil {
-			return ShellResult{}, WrapError(ErrInvalidInput, "normalize cwd", err)
-		}
-		cmd.Dir = abs
-	}
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	result := ShellResult{Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: cmd.ProcessState.ExitCode()}
-	if ctx.Err() == context.DeadlineExceeded {
-		return result, NewError(ErrTimeout, "command timed out")
-	}
-	if err != nil {
-		return result, WrapError(ErrDriverError, "command failed", err)
-	}
-	return result, nil
 }

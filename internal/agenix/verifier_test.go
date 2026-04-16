@@ -4,19 +4,21 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestVerifierRunsCommandAndChecksOutputSchema(t *testing.T) {
 	repo := t.TempDir()
 	manifest := Manifest{
-		Name:    "repo.fix_test_failure",
-		Outputs: OutputSchema{Required: []string{"patch_summary", "changed_files"}},
+		Name:        "repo.fix_test_failure",
+		Permissions: Permissions{Network: true},
+		Outputs:     OutputSchema{Required: []string{"patch_summary", "changed_files"}},
 		Verifiers: []Verifier{
 			{Type: "command", Name: "run_tests", Command: "python3 -c 'print(42)'", CWD: repo, Success: VerifierSuccess{ExitCode: 0}},
 			{Type: "schema", Name: "output_schema_check", SchemaRef: "outputs"},
 		},
 	}
-	trace := NewTrace(manifest.Name, "fake-scripted", Permissions{})
+	trace := NewTrace(manifest.Name, "fake-scripted", manifest.Permissions)
 	output := map[string]any{"patch_summary": "fixed", "changed_files": []string{"bug.py"}}
 
 	if err := RunVerifiers(manifest, output, trace); err != nil {
@@ -53,13 +55,14 @@ func TestVerifierReportsCommandFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest := Manifest{
-		Name: "repo.fix_test_failure",
+		Name:        "repo.fix_test_failure",
+		Permissions: Permissions{Network: true},
 		Verifiers: []Verifier{
 			{Type: "command", Name: "run_tests", Command: "python3 fail.py", CWD: repo, Success: VerifierSuccess{ExitCode: 0}},
 		},
 	}
 
-	err := RunVerifiers(manifest, map[string]any{}, NewTrace(manifest.Name, "fake-scripted", Permissions{}))
+	err := RunVerifiers(manifest, map[string]any{}, NewTrace(manifest.Name, "fake-scripted", manifest.Permissions))
 	if err == nil {
 		t.Fatal("expected command verifier failure")
 	}
@@ -71,7 +74,8 @@ func TestVerifierReportsCommandFailure(t *testing.T) {
 func TestVerifierRunsStructuredCommandWithoutShellParsing(t *testing.T) {
 	repo := t.TempDir()
 	manifest := Manifest{
-		Name: "repo.fix_test_failure",
+		Name:        "repo.fix_test_failure",
+		Permissions: Permissions{Network: true},
 		Verifiers: []Verifier{{
 			Type: "command",
 			Name: "run_tests",
@@ -85,7 +89,7 @@ func TestVerifierRunsStructuredCommandWithoutShellParsing(t *testing.T) {
 			Success: VerifierSuccess{ExitCode: 0},
 		}},
 	}
-	trace := NewTrace(manifest.Name, "fake-scripted", Permissions{})
+	trace := NewTrace(manifest.Name, "fake-scripted", manifest.Permissions)
 
 	if err := RunVerifiers(manifest, map[string]any{}, trace); err != nil {
 		t.Fatalf("RunVerifiers returned error: %v", err)
@@ -109,9 +113,9 @@ func TestVerifierRejectsStructuredCommandWithExecutablePolicyMismatch(t *testing
 		},
 		Success: VerifierSuccess{ExitCode: 0},
 	}
-	trace := NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{})
+	trace := NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{Network: true})
 
-	err := runCommandVerifier(verifier, trace)
+	err := runCommandVerifier(Permissions{Network: true}, verifier, trace)
 	if err == nil {
 		t.Fatal("expected PolicyViolation error")
 	}
@@ -141,11 +145,90 @@ func TestVerifierUsesPolicyTimeout(t *testing.T) {
 		Success: VerifierSuccess{ExitCode: 0},
 	}
 
-	err := runCommandVerifier(verifier, NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{}))
+	err := runCommandVerifier(Permissions{Network: true}, verifier, NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{Network: true}))
 	if err == nil {
 		t.Fatal("expected Timeout error")
 	}
 	if !IsErrorClass(err, ErrTimeout) {
 		t.Fatalf("expected Timeout, got %v", err)
+	}
+}
+
+func TestRunVerifiersRejectsStructuredCommandWhenNetworkDisabled(t *testing.T) {
+	repo := t.TempDir()
+	manifest := Manifest{
+		Name:        "repo.fix_test_failure",
+		Permissions: Permissions{Network: false},
+		Verifiers: []Verifier{{
+			Type: "command",
+			Name: "run_tests",
+			Run:  []string{"curl", "https://example.com"},
+			CWD:  repo,
+			Policy: &VerifierPolicy{
+				Executable: "curl",
+				CWD:        repo,
+				TimeoutMS:  1000,
+			},
+			Success: VerifierSuccess{ExitCode: 0},
+		}},
+	}
+	trace := NewTrace(manifest.Name, "fake-scripted", manifest.Permissions)
+
+	called := 0
+	original := execCommandRunner
+	execCommandRunner = func(argv []string, cwd string, timeout time.Duration, env []string) (ShellResult, error) {
+		called++
+		return ShellResult{}, nil
+	}
+	t.Cleanup(func() {
+		execCommandRunner = original
+	})
+
+	err := RunVerifiers(manifest, map[string]any{}, trace)
+	if err == nil {
+		t.Fatal("expected PolicyViolation")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if called != 0 {
+		t.Fatalf("expected runner not to be called, got %d", called)
+	}
+}
+
+func TestRunVerifiersRejectsLegacyCmdVerifierWhenNetworkDisabled(t *testing.T) {
+	repo := t.TempDir()
+	manifest := Manifest{
+		Name:        "repo.fix_test_failure",
+		Permissions: Permissions{Network: false},
+		Verifiers: []Verifier{{
+			Type:    "command",
+			Name:    "run_tests",
+			Command: "python3 -c 'print(42)'",
+			CWD:     repo,
+			Success: VerifierSuccess{ExitCode: 0},
+		}},
+	}
+	trace := NewTrace(manifest.Name, "fake-scripted", manifest.Permissions)
+
+	called := 0
+	original := execCommandRunner
+	execCommandRunner = func(argv []string, cwd string, timeout time.Duration, env []string) (ShellResult, error) {
+		called++
+		return ShellResult{}, nil
+	}
+	t.Cleanup(func() {
+		execCommandRunner = original
+	})
+
+	err := RunVerifiers(manifest, map[string]any{}, trace)
+	if err == nil {
+		t.Fatal("expected PolicyViolation")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if called != 0 {
+		t.Fatalf("expected runner not to be called, got %d", called)
 	}
 }

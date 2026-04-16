@@ -33,6 +33,13 @@ Constraints:
 Constraints:
 
 - Only allowed commands (by policy/tool whitelist) may run.
+- v0 does not claim OS-level network sandboxing.
+- When `permissions.network` is `false`, runtime-managed subprocess launch is
+  supported only for launcher types with explicit local-only or network-denied
+  handling.
+- Today this means Python subprocesses run under a runtime-injected
+  network-denied launcher, offline-safe local git subcommands remain allowed,
+  and unsupported executables fail closed as `PolicyViolation`.
 - Runtime may apply documented platform executable aliases after policy
   comparison and before execution.
 - v0 only defines one alias: on Windows, `python3` may resolve to `python`
@@ -63,6 +70,8 @@ Constraints:
 
 - `run` command verifiers must declare `policy.executable`, `policy.cwd`, and
   `policy.timeout_ms`.
+- Verifier subprocess launch uses the same `permissions.network=false` rule as
+  runtime-managed tool execution.
 - Verifier policy comparison uses the requested executable before platform alias
   resolution.
 - Command verifier trace entries record `cmd`, `resolved_cmd`, `cwd`, and

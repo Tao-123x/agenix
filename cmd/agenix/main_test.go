@@ -128,8 +128,12 @@ outputs:
 verifiers:
   - type: command
     name: run_tests
-    cmd: "python3 -m pytest -q"
+    run: ["python3", "-m", "pytest", "-q"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
   - type: schema
@@ -339,8 +343,12 @@ outputs:
 verifiers:
   - type: command
     name: run_tests
-    cmd: "python3 -m pytest -q"
+    run: ["python3", "-m", "pytest", "-q"]
     cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
     success:
       exit_code: 0
   - type: schema

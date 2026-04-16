@@ -1,0 +1,37 @@
+apiVersion: agenix/v0.1
+kind: Skill
+name: policy_negative.network_verifier_reject
+version: 0.1.0
+description: Fail command verifier execution because network is disabled and the verifier attempts network access.
+tools:
+  - fs
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+inputs:
+  repo_path: fixture
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "network_attempt.py"]
+    cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
+    success:
+      exit_code: 0
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+recovery:
+  strategy: checkpoint
+  intervals: 5

@@ -57,6 +57,31 @@ func (shellMismatchAdapter) Execute(_ Manifest, tools *Tools) (map[string]any, e
 	}, err
 }
 
+type networkShellAdapter struct{}
+
+func (networkShellAdapter) Metadata() AdapterMetadata {
+	return AdapterMetadata{
+		Name:            "network-shell",
+		ModelProfile:    "network-shell",
+		SupportedSkills: []string{"policy_negative.network_shell_reject"},
+		Capabilities: CapabilitySet{
+			ToolCalling:      true,
+			StructuredOutput: true,
+			MaxContextTokens: 32000,
+			ReasoningLevel:   "medium",
+		},
+	}
+}
+
+func (networkShellAdapter) Execute(manifest Manifest, tools *Tools) (map[string]any, error) {
+	repoPath := manifest.Inputs["repo_path"]
+	_, err := tools.ShellExec([]string{"python3", "network_attempt.py"}, repoPath, 5*time.Second)
+	return map[string]any{
+		"patch_summary": "attempted networked shell command",
+		"changed_files": []string{},
+	}, err
+}
+
 type staticOutputAdapter struct {
 	skill  string
 	output map[string]any
@@ -216,5 +241,66 @@ func TestPolicyNegativeVerifierPolicyReject(t *testing.T) {
 		if request[key] == nil {
 			t.Fatalf("missing verifier request field %q in %#v", key, request)
 		}
+	}
+}
+
+func TestPolicyNegativeNetworkFalseRejectsShellExec(t *testing.T) {
+	manifestPath := materializePolicyScenario(t, "network_shell_reject")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter:      networkShellAdapter{},
+	})
+	if err == nil {
+		t.Fatal("expected policy violation")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if result.TracePath == "" {
+		t.Fatal("expected trace path for policy failure")
+	}
+
+	trace := readPolicyNegativeTrace(t, result.TracePath)
+	event := traceEventNamed(t, trace, "tool_call", "shell.exec")
+	if eventErrorClass(event.Error) != ErrPolicyViolation {
+		t.Fatalf("expected shell.exec policy violation, got %#v", event)
+	}
+}
+
+func TestPolicyNegativeNetworkFalseRejectsCommandVerifier(t *testing.T) {
+	manifestPath := materializePolicyScenario(t, "network_verifier_reject")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter: staticOutputAdapter{
+			skill: "policy_negative.network_verifier_reject",
+			output: map[string]any{
+				"patch_summary": "noop",
+				"changed_files": []string{},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected verifier policy violation")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if result.TracePath == "" {
+		t.Fatal("expected trace path for verifier failure")
+	}
+
+	trace := readPolicyNegativeTrace(t, result.TracePath)
+	event := traceEventNamed(t, trace, "verifier", "run_tests")
+	if event.Status != "failed" {
+		t.Fatalf("expected failed verifier event, got %#v", event)
+	}
+	if eventErrorClass(event.Error) != ErrPolicyViolation {
+		t.Fatalf("expected verifier PolicyViolation, got %#v", event)
 	}
 }

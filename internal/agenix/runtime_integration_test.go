@@ -341,6 +341,31 @@ func TestVerifyExistingTraceRerunsVerifiers(t *testing.T) {
 	}
 }
 
+func TestVerifyRejectsCommandVerifierRerunWhenNetworkDisabled(t *testing.T) {
+	manifestPath := materializePolicyScenario(t, "network_verifier_reject")
+	trace := NewTrace("policy_negative.network_verifier_reject", "fake-scripted", Permissions{Network: false})
+	trace.ManifestPath = manifestPath
+	trace.SetFinal("passed", map[string]any{
+		"patch_summary": "noop",
+		"changed_files": []string{},
+	}, "")
+	tracePath := filepath.Join(t.TempDir(), "trace.json")
+	if err := WriteTrace(tracePath, trace); err != nil {
+		t.Fatal(err)
+	}
+
+	verifyResult, err := Verify(tracePath)
+	if err == nil {
+		t.Fatal("expected Verify to fail")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if verifyResult.Status != "failed" {
+		t.Fatalf("verify status = %q", verifyResult.Status)
+	}
+}
+
 func TestVerifyRejectsFailedTrace(t *testing.T) {
 	root := t.TempDir()
 	repo := writePythonFixture(t, root, false)

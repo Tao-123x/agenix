@@ -1,0 +1,29 @@
+apiVersion: agenix/v0.1
+kind: Skill
+name: policy_negative.network_shell_reject
+version: 0.1.0
+description: Fail an allowlisted shell command because network is disabled and the command attempts network access.
+tools:
+  - shell
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+  shell:
+    allow:
+      - run: ["python3", "network_attempt.py"]
+inputs:
+  repo_path: fixture
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+recovery:
+  strategy: checkpoint
+  intervals: 5

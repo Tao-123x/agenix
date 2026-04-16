@@ -11,7 +11,7 @@ func RunVerifiers(manifest Manifest, output map[string]any, trace *Trace) error 
 	for _, verifier := range manifest.Verifiers {
 		switch verifier.Type {
 		case "command":
-			if err := runCommandVerifier(verifier, trace); err != nil {
+			if err := runCommandVerifier(manifest.Permissions, verifier, trace); err != nil {
 				return err
 			}
 		case "schema":
@@ -25,7 +25,7 @@ func RunVerifiers(manifest Manifest, output map[string]any, trace *Trace) error 
 	return nil
 }
 
-func runCommandVerifier(verifier Verifier, trace *Trace) error {
+func runCommandVerifier(permissions Permissions, verifier Verifier, trace *Trace) error {
 	requested := verifierArgs(verifier)
 	timeout := verifierTimeout(verifier)
 	request := verifierRequest(verifier, requested, timeout)
@@ -33,7 +33,7 @@ func runCommandVerifier(verifier Verifier, trace *Trace) error {
 		trace.AddVerifierEvent(verifier.Name, verifier.Type, "failed", request, ShellResult{}, err)
 		return err
 	}
-	result, err := runCommand(requested, verifier.CWD, timeout)
+	result, err := runCommand(requested, verifier.CWD, timeout, permissions)
 	status := "passed"
 	if err != nil || result.ExitCode != verifier.Success.ExitCode {
 		status = "failed"
@@ -41,7 +41,7 @@ func runCommandVerifier(verifier Verifier, trace *Trace) error {
 	trace.AddVerifierEvent(verifier.Name, verifier.Type, status, request, result, err)
 	if status == "failed" {
 		if err != nil {
-			if IsErrorClass(err, ErrTimeout) {
+			if IsErrorClass(err, ErrTimeout) || IsErrorClass(err, ErrPolicyViolation) {
 				return err
 			}
 			return WrapError(ErrVerificationFailed, verifier.Name, err)

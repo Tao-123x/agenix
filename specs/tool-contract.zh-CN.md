@@ -33,6 +33,12 @@
 约束：
 
 - 只能执行 policy / tool whitelist 允许的命令。
+- v0 不宣称提供 OS 级别的网络沙箱。
+- 当 `permissions.network` 为 `false` 时，runtime 管理的子进程启动只支持那些
+  明确处理为 local-only 或 network-denied 的 launcher 类型。
+- 目前这意味着：Python 子进程通过 runtime 注入的 network-denied launcher
+  运行；离线安全的本地 git 子命令仍然允许；不受支持的 executable 一律以
+  `PolicyViolation` 失败关闭。
 - Runtime 可以在 policy 比较之后、执行之前，应用已记录的平台 executable alias。
 - v0 目前只定义了一个 alias：在 Windows 上，如果 `python3` 指向 Microsoft Store
   shim，而 `python` 可用，则 `python3` 可以解析成 `python`。
@@ -59,6 +65,8 @@
 
 - `run` 形式的 command verifier 必须声明 `policy.executable`、`policy.cwd` 和
   `policy.timeout_ms`。
+- Verifier 子进程启动与 runtime 管理的 tool 执行一样，使用同一套
+  `permissions.network=false` 规则。
 - Verifier policy 比较使用请求的 executable，也就是平台 alias 解析之前的值。
 - Command verifier trace entry 会记录 `cmd`、`resolved_cmd`、`cwd` 和 `timeout_ms`。
 - 旧的 `cmd` verifier 保持向后兼容，但不满足采购级别的 verifier policy contract。
