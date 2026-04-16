@@ -33,6 +33,35 @@ type RegistryIndex struct {
 	Entries []RegistryEntry `json:"entries"`
 }
 
+func ResolveRegistryReference(reference, registry string) (string, error) {
+	if pathExists(reference) {
+		abs, err := filepath.Abs(reference)
+		if err != nil {
+			return "", WrapError(ErrInvalidInput, "normalize reference path", err)
+		}
+		return abs, nil
+	}
+	if !looksLikeRegistryReference(reference) {
+		if registry != "" && !looksLikePathTarget(reference) {
+			return "", NewError(ErrInvalidInput, "registry reference must be skill@version or sha256:digest")
+		}
+		return reference, nil
+	}
+	registryRoot, err := registryRoot(registry)
+	if err != nil {
+		return "", err
+	}
+	index, err := loadRegistryIndex(registryRoot)
+	if err != nil {
+		return "", err
+	}
+	entry, err := findRegistryEntry(index, reference)
+	if err != nil {
+		return "", err
+	}
+	return entry.ArtifactPath, nil
+}
+
 func PublishArtifact(options PublishOptions) (RegistryEntry, error) {
 	if options.ArtifactPath == "" {
 		return RegistryEntry{}, NewError(ErrInvalidInput, "publish requires artifact path")
@@ -194,6 +223,26 @@ func findRegistryEntry(index RegistryIndex, reference string) (RegistryEntry, er
 
 func registryArtifactRelPath(skill, version, digest string) string {
 	return filepath.Join("artifacts", filepath.FromSlash(skill), version, strings.ReplaceAll(digest, ":", "-")+".agenix")
+}
+
+func looksLikeRegistryReference(value string) bool {
+	if strings.HasPrefix(value, "sha256:") {
+		return true
+	}
+	if strings.ContainsAny(value, `/\`) {
+		return false
+	}
+	skill, version, ok := strings.Cut(value, "@")
+	return ok && skill != "" && version != ""
+}
+
+func looksLikePathTarget(value string) bool {
+	return strings.ContainsAny(value, `/\`) || strings.HasSuffix(value, ".agenix") || strings.HasSuffix(value, ".yaml") || strings.HasSuffix(value, ".json")
+}
+
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func copyFile(src, dst string) error {

@@ -113,8 +113,8 @@ and indexed for explicit lookup by exact `skill@version` or full digest. v0.1
 registry semantics are intentionally narrow:
 
 - `publish` is explicit; `build` does not imply publish.
-- `pull` is explicit; `run` and `inspect` do not yet resolve registry
-  references directly.
+- `pull` is explicit when the caller wants a copied local capsule.
+- `run` and `inspect` may resolve exact registry references directly.
 - the registry rejects publishing a different digest for an already published
   `skill@version`
 - the registry is local only and does not define signatures, trust policy, or

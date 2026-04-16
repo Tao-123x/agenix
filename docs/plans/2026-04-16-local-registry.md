@@ -1,11 +1,12 @@
 # Local Registry Implementation Plan
 
 **Goal:** Add a minimal local filesystem registry with explicit `publish` and
-`pull` commands for Agenix artifacts.
+`pull` commands, then let `run` and `inspect` consume exact registry references
+directly.
 
-**Architecture:** Keep the registry out of the runtime execution path for this
-slice. Add a focused registry module under `internal/agenix` for storage,
-indexing, and lookup, then wire thin CLI commands on top.
+**Architecture:** Add a focused registry module under `internal/agenix` for
+storage, indexing, and exact reference resolution. Keep filesystem paths higher
+priority than registry refs so path-based behavior stays stable.
 
 **Tech Stack:** Go standard library, existing artifact integrity checks, CLI
 tests via `go run`.
@@ -16,6 +17,8 @@ tests via `go run`.
 - Create: `internal/agenix/registry_test.go`
 - Modify: `cmd/agenix/main.go`
 - Modify: `cmd/agenix/main_test.go`
+- Modify: `internal/agenix/runtime.go`
+- Modify: `internal/agenix/runtime_integration_test.go`
 - Modify: `README.md`
 - Modify: `specs/agenix-spec-v0.1.md`
 
@@ -26,6 +29,7 @@ tests via `go run`.
 - [ ] Add unit tests for publish, idempotent republish, version conflict, pull
       by digest, and pull by `skill@version`.
 - [ ] Add CLI tests for `agenix publish` and `agenix pull`.
+- [ ] Add direct registry-reference tests for `agenix inspect` and `agenix run`.
 - [ ] Run the focused tests and confirm they fail for missing registry support.
 
 ### Task 2: Registry implementation
@@ -34,9 +38,12 @@ tests via `go run`.
       reference lookup in `internal/agenix/registry.go`.
 - [ ] Reuse `InspectArtifact` for integrity-backed publish metadata.
 - [ ] Keep `skill@version` deterministic by rejecting conflicting digests.
+- [ ] Resolve exact registry refs for `run` and `inspect` without regressing
+      normal filesystem path behavior.
 
 ### Task 3: CLI and docs
 
 - [ ] Add `publish` and `pull` subcommands to `cmd/agenix/main.go`.
+- [ ] Extend `run` and `inspect` to accept exact registry references.
 - [ ] Document the local registry loop in `README.md` and `specs/agenix-spec-v0.1.md`.
 - [ ] Run `go test -count=1 ./...`, `go vet ./...`, and `go build ./cmd/agenix`.

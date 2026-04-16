@@ -11,6 +11,7 @@ const fakeModelProfile = "fake-scripted"
 type RunOptions struct {
 	ManifestPath string
 	RunDir       string
+	RegistryRoot string
 	Adapter      Adapter
 }
 
@@ -42,7 +43,10 @@ type EscapeAdapter struct {
 
 func Run(options RunOptions) (RunResult, error) {
 	runID := newRunID()
-	manifestPath := options.ManifestPath
+	manifestPath, err := ResolveRegistryReference(options.ManifestPath, options.RegistryRoot)
+	if err != nil {
+		return RunResult{RunID: runID, TracePath: tracePathFor(options.RunDir, runID), Status: "failed"}, err
+	}
 	if isArtifactTarget(manifestPath) {
 		workspaceDir := filepath.Join(runRoot(options.RunDir), runID, "workspace")
 		materializedManifest, _, err := MaterializeArtifact(manifestPath, workspaceDir)

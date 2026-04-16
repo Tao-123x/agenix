@@ -113,6 +113,16 @@ same `skill@version`, Agenix rejects it and forces a version bump so
 `skill@version` remains deterministic. `pull` currently accepts either
 `skill@version` or a full `sha256:...` digest reference.
 
+Direct registry references also work for `inspect` and `run`:
+
+```bash
+go run ./cmd/agenix inspect repo.fix_test_failure@0.1.0
+go run ./cmd/agenix run repo.fix_test_failure@0.1.0
+```
+
+If you need a non-default registry root, pass `--registry <dir>` to
+`publish`, `pull`, `inspect`, or `run`.
+
 Run the read-only analysis demo:
 
 ```bash

@@ -23,7 +23,7 @@ Registry behavior for v0:
 - capsules are copied into the registry and indexed in `index.json`
 - `skill@version` must resolve deterministically to a single digest
 - publishing a different digest for the same `skill@version` is rejected
-- `run` and `inspect` do not yet resolve registry references directly
+- `run` and `inspect` may resolve exact registry references directly
 
 ## Consequences
 

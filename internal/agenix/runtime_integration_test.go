@@ -94,6 +94,37 @@ func TestRuntimeRunsMovableArtifactCapsule(t *testing.T) {
 	}
 }
 
+func TestRuntimeRunsArtifactFromRegistryReference(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill")
+	writePythonFixture(t, skillDir, true)
+	writeManifestAt(t, filepath.Join(skillDir, "manifest.yaml"), "repo")
+	artifact := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: artifact}); err != nil {
+		t.Fatal(err)
+	}
+	registryRoot := filepath.Join(root, "registry")
+	if _, err := PublishArtifact(PublishOptions{ArtifactPath: artifact, RegistryRoot: registryRoot}); err != nil {
+		t.Fatal(err)
+	}
+	runDir := filepath.Join(root, ".agenix-runs")
+
+	result, err := Run(RunOptions{
+		ManifestPath: "repo.fix_test_failure@0.1.0",
+		RunDir:       runDir,
+		RegistryRoot: registryRoot,
+	})
+	if err != nil {
+		t.Fatalf("Run registry ref returned error: %v", err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	if len(result.ChangedFiles) != 1 || !strings.Contains(result.ChangedFiles[0], filepath.Join("workspace", "repo", "mathlib.py")) {
+		t.Fatalf("changed files = %#v", result.ChangedFiles)
+	}
+}
+
 func TestArtifactTraceStoresAbsoluteManifestPathForCrossCWDVerify(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, "skill")

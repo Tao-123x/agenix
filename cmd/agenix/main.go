@@ -31,20 +31,26 @@ func run(args []string) error {
 		fmt.Println(formatArtifactSummary(result))
 		return nil
 	case "inspect":
-		if len(args) != 2 {
-			return usage()
+		target, registryRoot, err := parseTargetWithOptionalRegistry(args[1:])
+		if err != nil {
+			return err
 		}
-		result, err := agenix.InspectArtifact(args[1])
+		target, err = agenix.ResolveRegistryReference(target, registryRoot)
+		if err != nil {
+			return err
+		}
+		result, err := agenix.InspectArtifact(target)
 		if err != nil {
 			return err
 		}
 		fmt.Println(formatArtifactSummary(result))
 		return nil
 	case "run":
-		if len(args) != 2 {
-			return usage()
+		target, registryRoot, err := parseTargetWithOptionalRegistry(args[1:])
+		if err != nil {
+			return err
 		}
-		result, err := agenix.Run(agenix.RunOptions{ManifestPath: args[1]})
+		result, err := agenix.Run(agenix.RunOptions{ManifestPath: target, RegistryRoot: registryRoot})
 		if err != nil {
 			if result.TracePath != "" {
 				fmt.Printf("status=failed run_id=%s trace=%s\n", result.RunID, result.TracePath)
@@ -146,4 +152,18 @@ func parsePullArgs(args []string) (string, string, string, error) {
 		return "", "", "", usage()
 	}
 	return ref, outputPath, args[4], nil
+}
+
+func parseTargetWithOptionalRegistry(args []string) (string, string, error) {
+	if len(args) != 1 && len(args) != 3 {
+		return "", "", usage()
+	}
+	target := args[0]
+	if len(args) == 1 {
+		return target, "", nil
+	}
+	if args[1] != "--registry" {
+		return "", "", usage()
+	}
+	return target, args[2], nil
 }

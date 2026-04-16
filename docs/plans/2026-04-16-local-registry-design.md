@@ -12,10 +12,9 @@ This slice adds two explicit CLI commands:
 - `agenix publish <artifact> [--registry <dir>]`
 - `agenix pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>]`
 
-It does not change `agenix run` or `agenix inspect` to resolve registry
-references implicitly. That keeps the first registry loop explicit and avoids
-mixing path parsing, registry resolution, and runtime execution semantics in one
-change.
+It also lets `agenix run` and `agenix inspect` resolve exact registry
+references directly. Filesystem paths still keep priority, so existing path
+behavior does not regress.
 
 ## Chosen Approach
 
@@ -31,6 +30,8 @@ Use a local filesystem registry rooted at `~/.agenix/registry` by default.
   bumps.
 - `pull` resolves either by full digest (`sha256:...`) or exact
   `skill@version`, then copies the stored capsule to the requested output path.
+- `run` and `inspect` may resolve those same exact registry references in
+  place.
 
 ## Why This Approach
 
@@ -40,11 +41,10 @@ Three options were on the table:
 2. Make `run` and `inspect` accept registry references directly.
 3. Skip an index and scan the filesystem on every lookup.
 
-Option 1 is the right first cut. It gives us a real local distribution loop,
-stable lookup semantics, and focused tests without expanding runtime path
-resolution. Option 2 is a valid later enhancement once registry references are
-proven. Option 3 keeps implementation shorter but weakens determinism and makes
-error handling fuzzy.
+The implemented shape combines Option 1 with a narrow version of Option 2. That
+gives us a real local distribution loop plus direct `run`/`inspect` ergonomics,
+without introducing fuzzy implicit lookup. Option 3 keeps implementation
+shorter but weakens determinism and makes error handling fuzzy.
 
 ## Data Model
 
@@ -72,5 +72,5 @@ Index entry fields:
 
 - Unit tests for publish, idempotent republish, conflict rejection, and pull by
   digest / by `skill@version`
-- CLI tests for `publish` and `pull`
+- CLI tests for `publish`, `pull`, direct `inspect`, and direct `run`
 - Full `go test -count=1 ./...`, `go vet ./...`, and `go build ./cmd/agenix`
