@@ -527,8 +527,15 @@ func safeJoin(root, rel string) (string, error) {
 	if err != nil {
 		return "", WrapError(ErrInvalidInput, "normalize artifact root", err)
 	}
-	target := filepath.Clean(filepath.Join(rootAbs, filepath.FromSlash(rel)))
-	inside, err := filepath.Rel(rootAbs, target)
+	resolvedRoot, err := resolvePolicyPath(rootAbs)
+	if err != nil {
+		return "", WrapError(ErrInvalidInput, "resolve artifact root", err)
+	}
+	target, err := resolvePolicyPathWithBase(filepath.FromSlash(rel), rootAbs)
+	if err != nil {
+		return "", WrapError(ErrInvalidInput, "resolve artifact path", err)
+	}
+	inside, err := filepath.Rel(resolvedRoot, target)
 	if err != nil {
 		return "", WrapError(ErrInvalidInput, "validate artifact path", err)
 	}

@@ -137,6 +137,41 @@ func TestMaterializeArtifactRejectsTamperedPayload(t *testing.T) {
 	}
 }
 
+func TestMaterializeArtifactRejectsPreexistingWorkspaceSymlinkEscape(t *testing.T) {
+	root := t.TempDir()
+	skillDir := writeCapsuleSkill(t, root)
+	out := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: out}); err != nil {
+		t.Fatal(err)
+	}
+
+	workspace := filepath.Join(root, "workspace")
+	outsideDir := filepath.Join(root, "outside")
+	if err := os.MkdirAll(workspace, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outsideDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsideDir, filepath.Join(workspace, "fixture")); err != nil {
+		if isSymlinkUnsupported(err) {
+			t.Skipf("symlink unsupported on this host: %v", err)
+		}
+		t.Fatal(err)
+	}
+
+	_, _, err := MaterializeArtifact(out, workspace)
+	if err == nil {
+		t.Fatal("expected symlinked workspace escape to be rejected")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(outsideDir, "mathlib.py")); !os.IsNotExist(statErr) {
+		t.Fatalf("expected no payload to be written outside workspace, stat err=%v", statErr)
+	}
+}
+
 func TestInspectArtifactRejectsUnlockedPayload(t *testing.T) {
 	root := t.TempDir()
 	skillDir := writeCapsuleSkill(t, root)

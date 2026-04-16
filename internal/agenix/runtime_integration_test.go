@@ -430,6 +430,102 @@ func TestVerifyRejectsChangedFilesOutsideWriteScope(t *testing.T) {
 	}
 }
 
+func TestVerifyAcceptsRepoRelativeChangedFilesAgainstMaterializedWorkspaceAcrossCWD(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill")
+	writePythonFixture(t, skillDir, true)
+	writeManifestAt(t, filepath.Join(skillDir, "manifest.yaml"), "repo")
+	artifact := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: artifact}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Run(RunOptions{ManifestPath: artifact, RunDir: filepath.Join(root, ".agenix-runs")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace, err := ReadTrace(result.TracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace.SetFinal("passed", map[string]any{
+		"patch_summary": "x",
+		"changed_files": []string{filepath.Join("repo", "mathlib.py")},
+	}, "")
+	if err := WriteTrace(result.TracePath, trace); err != nil {
+		t.Fatal(err)
+	}
+
+	oldwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(oldwd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+
+	verifyResult, err := Verify(result.TracePath)
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	if verifyResult.Status != "passed" {
+		t.Fatalf("verify status = %q", verifyResult.Status)
+	}
+}
+
+func TestVerifyRejectsRepoRelativeChangedFilesThatEscapeMaterializedWorkspace(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill")
+	writePythonFixture(t, skillDir, true)
+	writeManifestAt(t, filepath.Join(skillDir, "manifest.yaml"), "repo")
+	artifact := filepath.Join(root, "skill.agenix")
+	if _, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: artifact}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Run(RunOptions{ManifestPath: artifact, RunDir: filepath.Join(root, ".agenix-runs")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace, err := ReadTrace(result.TracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace.SetFinal("passed", map[string]any{
+		"patch_summary": "x",
+		"changed_files": []string{filepath.Join("repo", "..", "..", "outside.py")},
+	}, "")
+	if err := WriteTrace(result.TracePath, trace); err != nil {
+		t.Fatal(err)
+	}
+
+	oldwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(oldwd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Verify(result.TracePath)
+	if err == nil {
+		t.Fatal("expected repo-relative escape changed file to be rejected")
+	}
+	if !IsErrorClass(err, ErrVerificationFailed) {
+		t.Fatalf("expected VerificationFailed, got %v", err)
+	}
+}
+
 func TestReplaySummarizesTrace(t *testing.T) {
 	root := t.TempDir()
 	repo := writePythonFixture(t, root, false)

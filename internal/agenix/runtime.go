@@ -91,7 +91,7 @@ func Run(options RunOptions) (RunResult, error) {
 	}
 	trace.AddAdapterEvent("capability_check", "ok", manifest.Capabilities.Requires, metadata.Capabilities, nil)
 
-	policy, err := NewPolicy(manifest.Permissions)
+	policy, err := NewPolicyWithBase(manifest.Permissions, filepath.Dir(manifestPath))
 	if err != nil {
 		trace.SetFinal("failed", nil, err.Error())
 		_ = WriteTrace(tracePath, trace)
@@ -313,7 +313,7 @@ func Verify(path string) (RunResult, error) {
 		raw, _ := json.Marshal(trace.Final.Output)
 		_ = json.Unmarshal(raw, &output)
 	}
-	policy, err := NewPolicy(manifest.Permissions)
+	policy, err := NewPolicyWithBase(manifest.Permissions, filepath.Dir(trace.ManifestPath))
 	if err != nil {
 		return RunResult{}, err
 	}

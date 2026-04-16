@@ -16,6 +16,11 @@
 
 - Runtime must deny tool calls outside policy.
 - Violations become traceable events.
+- When the runtime knows the manifest or workspace root, repo-relative
+  filesystem paths must resolve against that root, not the verifier process
+  cwd.
+- Filesystem scope decisions must resolve existing symlinked path segments
+  before permit/deny comparison.
 - v0 does not claim OS-level network sandboxing.
 - When `permissions.network` is `false`, runtime-managed subprocess launch is
   supported only for launcher types with explicit local-only or network-denied

@@ -25,6 +25,10 @@
 Constraints:
 
 - Writes must be within declared write scope.
+- When the runtime knows the manifest or workspace root, repo-relative paths
+  are resolved against that root before scope checks.
+- Scope checks must resolve existing symlinked path segments before comparing a
+  target path against declared read/write scope.
 
 ### shell
 
