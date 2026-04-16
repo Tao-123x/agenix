@@ -98,13 +98,16 @@ func Run(options RunOptions) (RunResult, error) {
 		return result, err
 	}
 
+	executeRequest := map[string]string{"skill": manifest.Name, "adapter": metadata.Name}
 	output, err := adapter.Execute(manifest, NewTools(policy, trace))
 	if err != nil {
+		trace.AddAdapterEvent("execute", "failed", executeRequest, output, err)
 		trace.SetFinal("failed", output, err.Error())
 		_ = WriteTrace(tracePath, trace)
 		result.Status = "failed"
 		return result, err
 	}
+	trace.AddAdapterEvent("execute", "ok", executeRequest, output, nil)
 	if err := RunVerifiers(manifest, output, trace); err != nil {
 		trace.SetFinal("failed", output, err.Error())
 		_ = WriteTrace(tracePath, trace)

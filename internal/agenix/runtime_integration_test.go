@@ -212,6 +212,47 @@ func TestRuntimeRunsReadOnlyAnalyzeTestFailuresSkill(t *testing.T) {
 	}
 }
 
+func TestRuntimeRunsAnalyzeSkillWithHeuristicAdapter(t *testing.T) {
+	manifestPath := filepath.Join("..", "..", "examples", "repo.analyze_test_failures", "manifest.yaml")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter:      HeuristicAnalyzeTestFailuresAdapter{},
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	trace, err := ReadTrace(result.TracePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !traceHasAdapterEvent(*trace, "execute", "ok") {
+		t.Fatalf("trace does not contain successful adapter execute event: %#v", trace.Events)
+	}
+	if traceHasEvent(*trace, "tool_call", "fs.write") {
+		t.Fatalf("heuristic read-only adapter should not emit fs.write event: %#v", trace.Events)
+	}
+	verifyResult, err := Verify(result.TracePath)
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	if verifyResult.Status != "passed" {
+		t.Fatalf("verify status = %q", verifyResult.Status)
+	}
+	replay, err := Replay(result.TracePath)
+	if err != nil {
+		t.Fatalf("Replay returned error: %v", err)
+	}
+	if replay.FinalStatus != "passed" {
+		t.Fatalf("replay status = %q", replay.FinalStatus)
+	}
+}
+
 func TestRuntimeRunsSmallRefactorSkillWithConstrainedWrite(t *testing.T) {
 	skillDir := filepath.Join(t.TempDir(), "repo.apply_small_refactor")
 	copyDir(t, filepath.Join("..", "..", "examples", "repo.apply_small_refactor"), skillDir)
@@ -248,6 +289,110 @@ func TestRuntimeRunsSmallRefactorSkillWithConstrainedWrite(t *testing.T) {
 		if _, ok := output[field]; !ok {
 			t.Fatalf("final output missing %q: %#v", field, output)
 		}
+	}
+}
+
+func TestRuntimeRecordsAdapterExecuteFailureSeparately(t *testing.T) {
+	root := t.TempDir()
+	repo := writePythonFixture(t, root, true)
+	manifestPath := writeManifest(t, root, repo)
+	runDir := filepath.Join(root, ".agenix-runs")
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter: failingExecuteAdapter{
+			metadata: AdapterMetadata{
+				Name:            "failing-execute",
+				ModelProfile:    "failing-execute",
+				SupportedSkills: []string{"repo.fix_test_failure"},
+				Capabilities: CapabilitySet{
+					ToolCalling:      true,
+					StructuredOutput: true,
+					MaxContextTokens: 32000,
+					ReasoningLevel:   "medium",
+				},
+			},
+			err: NewError(ErrDriverError, "adapter backend failed"),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected adapter execute failure")
+	}
+	if !IsErrorClass(err, ErrDriverError) {
+		t.Fatalf("expected DriverError, got %v", err)
+	}
+	trace, readErr := ReadTrace(result.TracePath)
+	if readErr != nil {
+		t.Fatalf("ReadTrace returned error: %v", readErr)
+	}
+	if !traceHasAdapterEvent(*trace, "execute", "failed") {
+		t.Fatalf("trace does not contain failed adapter execute event: %#v", trace.Events)
+	}
+	if traceHasEvent(*trace, "verifier", "run_tests") {
+		t.Fatalf("adapter execute failure should happen before verifiers: %#v", trace.Events)
+	}
+}
+
+func TestRuntimeKeepsVerifierFailureDistinctFromAdapterExecute(t *testing.T) {
+	manifestPath := filepath.Join("..", "..", "examples", "repo.analyze_test_failures", "manifest.yaml")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter: staticOutputAdapter{
+			skill: "repo.analyze_test_failures",
+			output: map[string]any{
+				"analysis_summary": "partial",
+				"changed_files":    []string{},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected verifier failure")
+	}
+	if !IsErrorClass(err, ErrVerificationFailed) {
+		t.Fatalf("expected VerificationFailed, got %v", err)
+	}
+	trace, readErr := ReadTrace(result.TracePath)
+	if readErr != nil {
+		t.Fatalf("ReadTrace returned error: %v", readErr)
+	}
+	if !traceHasAdapterEvent(*trace, "execute", "ok") {
+		t.Fatalf("trace does not contain successful adapter execute event: %#v", trace.Events)
+	}
+	if !traceHasVerifier(*trace, "output_schema_check", "failed") {
+		t.Fatalf("trace does not contain failed schema verifier event: %#v", trace.Events)
+	}
+}
+
+func TestBuiltinHeuristicAdapterFailsPreflightForUnsupportedSkill(t *testing.T) {
+	root := t.TempDir()
+	repo := writePythonFixture(t, root, true)
+	manifestPath := writeManifest(t, root, repo)
+	runDir := filepath.Join(root, ".agenix-runs")
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter:      HeuristicAnalyzeTestFailuresAdapter{},
+	})
+	if err == nil {
+		t.Fatal("expected adapter support failure")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+	trace, readErr := ReadTrace(result.TracePath)
+	if readErr != nil {
+		t.Fatalf("ReadTrace returned error: %v", readErr)
+	}
+	if !traceHasAdapterEvent(*trace, "capability_check", "failed") {
+		t.Fatalf("trace does not contain failed adapter capability_check event: %#v", trace.Events)
+	}
+	if traceHasAdapterEvent(*trace, "execute", "failed") || traceHasAdapterEvent(*trace, "execute", "ok") {
+		t.Fatalf("unsupported builtin adapter should not reach execute: %#v", trace.Events)
 	}
 }
 
@@ -696,6 +841,19 @@ func (a capabilityLimitedAdapter) Execute(_ Manifest, _ *Tools) (map[string]any,
 		*a.called = true
 	}
 	return map[string]any{}, nil
+}
+
+type failingExecuteAdapter struct {
+	metadata AdapterMetadata
+	err      error
+}
+
+func (a failingExecuteAdapter) Metadata() AdapterMetadata {
+	return a.metadata
+}
+
+func (a failingExecuteAdapter) Execute(_ Manifest, _ *Tools) (map[string]any, error) {
+	return nil, a.err
 }
 
 func toolRequestPaths(trace Trace, name string) []string {

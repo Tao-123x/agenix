@@ -14,10 +14,11 @@
 
 - Skill declares `requires`.
 - Runtime checks model profile.
-- Outcome:
+- Current implemented outcomes:
   - **ok:** proceed
+  - **fail:** runtime rejects execution before tool calls
+- Planned but not yet implemented:
   - **degraded:** proceed with warnings
-  - **fail:** runtime reports `unsupported`
 
 ## Implemented minimum
 
@@ -29,10 +30,11 @@ The current runtime implements a local preflight check before any tool call:
 - runtime rejects unsupported skills before adapter execution
 - runtime rejects missing `tool_calling`, `structured_output`, insufficient
   `max_context_tokens`, or insufficient `reasoning_level`
-- trace records `adapter` events for selection and capability check results
+- trace records `adapter` events for selection, capability check, and execute
+  success/failure states
 
-The current runtime does not yet implement a degraded execution path or
-vendor-specific capability discovery.
+The current runtime does not yet implement a degraded execution path,
+vendor-specific capability discovery, or provider-specific negotiation.
 
 ## Failure reporting
 

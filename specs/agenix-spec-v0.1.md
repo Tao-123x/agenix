@@ -33,6 +33,11 @@
 - Negotiation protocol between runtime and model profile
 - Failure modes: `unsupported`, `degraded`, `adapter‑required`
 
+Reference runtime note:
+
+- v0.1 currently implements explicit preflight `ok` / reject behavior only.
+- `degraded` remains a planned contract state, not an implemented runtime path.
+
 ## 6. Tool Contracts
 
 - Namespaces

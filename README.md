@@ -53,7 +53,7 @@ Agenix defines five layers:
 
 - `README.md`
 - `cmd/agenix/` — reference runtime v0 CLI
-- `internal/agenix/` — manifest, policy, tool, trace, verifier, and fake adapter core
+- `internal/agenix/` — manifest, policy, tool, trace, verifier, and builtin adapter core
 - `specs/`
   - `agenix-spec-v0.1.md` — TOC + glossary + invariants
   - `skill-manifest.md` — the most important interface
@@ -180,13 +180,17 @@ Run the read-only analysis demo:
 
 ```bash
 go run ./cmd/agenix run examples/repo.analyze_test_failures/manifest.yaml
+go run ./cmd/agenix run examples/repo.analyze_test_failures/manifest.yaml --adapter heuristic-analyze
 go run ./cmd/agenix build examples/repo.analyze_test_failures -o repo.analyze_test_failures.agenix
 go run ./cmd/agenix run repo.analyze_test_failures.agenix
 ```
 
 This skill analyzes a known failing pytest fixture without any declared write
 scope. A passing run reports an empty `changed_files` list and records no
-`fs.write` event.
+`fs.write` event. The optional `--adapter heuristic-analyze` path uses a
+separate read-only builtin adapter instead of the default fake scripted one,
+while still going through the same runtime policy, trace, verifier, replay, and
+artifact loop.
 
 Run the constrained refactor demo:
 

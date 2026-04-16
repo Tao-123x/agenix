@@ -14,6 +14,7 @@
 ## Event types
 
 - `tool_call`: name, request, result, error, duration
+- `adapter`: name, status, request, result, error
 - `checkpoint`: marker for resume
 - `verifier`: name, result, output
 - `final`: status

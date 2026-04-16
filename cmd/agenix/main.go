@@ -48,11 +48,15 @@ func run(args []string) error {
 		fmt.Println(formatArtifactSummary(result))
 		return nil
 	case "run":
-		target, registryRoot, err := parseTargetWithOptionalRegistry(args[1:])
+		target, registryRoot, adapterName, err := parseRunArgs(args[1:])
 		if err != nil {
 			return err
 		}
-		result, err := agenix.Run(agenix.RunOptions{ManifestPath: target, RegistryRoot: registryRoot})
+		adapter, err := agenix.ResolveBuiltinAdapter(adapterName)
+		if err != nil {
+			return err
+		}
+		result, err := agenix.Run(agenix.RunOptions{ManifestPath: target, RegistryRoot: registryRoot, Adapter: adapter})
 		if err != nil {
 			if result.TracePath != "" {
 				fmt.Printf("status=failed run_id=%s trace=%s\n", result.RunID, result.TracePath)
@@ -130,7 +134,7 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
 }
 
 func formatRunResult(status, runID, tracePath string, changedFiles, verifierSummary []string) string {
@@ -239,6 +243,29 @@ func parseTargetWithOptionalRegistry(args []string) (string, string, error) {
 		return "", "", usage()
 	}
 	return target, args[2], nil
+}
+
+func parseRunArgs(args []string) (string, string, string, error) {
+	if len(args) < 1 || len(args)%2 == 0 || len(args) > 5 {
+		return "", "", "", usage()
+	}
+	target := args[0]
+	registryRoot := ""
+	adapterName := ""
+	for i := 1; i < len(args); i += 2 {
+		if i+1 >= len(args) {
+			return "", "", "", usage()
+		}
+		switch args[i] {
+		case "--registry":
+			registryRoot = args[i+1]
+		case "--adapter":
+			adapterName = args[i+1]
+		default:
+			return "", "", "", usage()
+		}
+	}
+	return target, registryRoot, adapterName, nil
 }
 
 func runRegistry(args []string) error {
