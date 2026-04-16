@@ -248,16 +248,8 @@ func executeApplySmallRefactor(manifest Manifest, tools *Tools) (map[string]any,
 	if err != nil {
 		return nil, err
 	}
-	refactored := strings.Replace(content, `def greeting(first, last):
-    return "Hello, " + first.strip() + " " + last.strip() + "!"
-`, `def full_name(first, last):
-    return first.strip() + " " + last.strip()
-
-
-def greeting(first, last):
-    return "Hello, " + full_name(first, last) + "!"
-`, 1)
-	if refactored != content {
+	refactored, changed := rewriteGreeterForRefactor(content)
+	if changed {
 		if err := tools.FSWrite(target, refactored, true); err != nil {
 			return nil, err
 		}
@@ -267,6 +259,26 @@ def greeting(first, last):
 		"refactor_summary": "greeting now delegates name formatting to full_name without changing behavior.",
 		"changed_files":    []string{target},
 	}, nil
+}
+
+func rewriteGreeterForRefactor(content string) (string, bool) {
+	normalized := strings.ReplaceAll(content, "\r\n", "\n")
+	refactored := strings.Replace(normalized, `def greeting(first, last):
+    return "Hello, " + first.strip() + " " + last.strip() + "!"
+`, `def full_name(first, last):
+    return first.strip() + " " + last.strip()
+
+
+def greeting(first, last):
+    return "Hello, " + full_name(first, last) + "!"
+`, 1)
+	if refactored == normalized {
+		return content, false
+	}
+	if strings.Contains(content, "\r\n") {
+		refactored = strings.ReplaceAll(refactored, "\n", "\r\n")
+	}
+	return refactored, true
 }
 
 func (EscapeAdapter) Metadata() AdapterMetadata {
