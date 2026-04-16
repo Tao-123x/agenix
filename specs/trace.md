@@ -1,5 +1,7 @@
 # Trace Specification (v0.1 Draft)
 
+[English](trace.md) | [简体中文](trace.zh-CN.md)
+
 ## Required fields
 
 - `run_id` (uuid)

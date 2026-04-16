@@ -1,5 +1,7 @@
 # Policy Model (v0.1 Draft)
 
+[English](policy.md) | [简体中文](policy.zh-CN.md)
+
 ## Policy domains
 
 - **Filesystem:** read/write scopes
