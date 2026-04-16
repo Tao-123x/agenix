@@ -115,8 +115,11 @@ recovery:
 
 ## Implemented minimum validation
 
-The current skeleton implements a lightweight contract check, not full JSON Schema
-validation. `LoadManifest` returns `InvalidInput` when these fields are missing:
+The reference runtime now publishes a schema file at
+`specs/manifest.schema.json`. The current implementation still treats
+`LoadManifest` as the authoritative runtime parser and semantic validator, and
+`agenix validate` applies the published schema-backed document check on top of
+that. `LoadManifest` returns `InvalidInput` when these fields are missing:
 
 - `apiVersion`
 - `kind`

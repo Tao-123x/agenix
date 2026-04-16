@@ -79,6 +79,16 @@ func run(args []string) error {
 		}
 		fmt.Printf("run_id=%s skill=%s status=%s events=%d\n", summary.RunID, summary.Skill, summary.FinalStatus, summary.EventCount)
 		return nil
+	case "validate":
+		if len(args) != 2 {
+			return usage()
+		}
+		kind, schemaPath, err := agenix.ValidateTarget(args[1])
+		if err != nil {
+			return err
+		}
+		fmt.Printf("status=valid kind=%s schema=%s path=%s\n", kind, schemaPath, args[1])
+		return nil
 	case "publish":
 		artifactPath, registryRoot, err := parsePublishArgs(args[1:])
 		if err != nil {
@@ -107,7 +117,7 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> | verify <trace> | replay <trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>]")
 }
 
 func formatRunResult(status, runID, tracePath string, changedFiles, verifierSummary []string) string {

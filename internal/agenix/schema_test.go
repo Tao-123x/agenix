@@ -1,6 +1,7 @@
 package agenix
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -210,5 +211,90 @@ verifiers:
 				t.Fatalf("expected InvalidInput, got %v", err)
 			}
 		})
+	}
+}
+
+func TestPublishedManifestSchemaAcceptsLoadedManifest(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest, err := LoadManifest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateManifestDocument(manifest); err != nil {
+		t.Fatalf("ValidateManifestDocument returned error: %v", err)
+	}
+}
+
+func TestPublishedTraceSchemaAcceptsReadTrace(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "trace.json")
+	trace := `{
+  "run_id": "run-1",
+  "skill": "repo.fix_test_failure",
+  "model_profile": "fake-scripted",
+  "started_at": "2026-04-16T00:00:00Z",
+  "policy": {"network": false},
+  "events": [
+    {"type": "tool_call", "name": "fs.read"}
+  ],
+  "final": {"status": "passed"}
+}`
+	if err := os.WriteFile(path, []byte(trace), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	decoded, err := ReadTrace(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateTraceDocument(*decoded); err != nil {
+		t.Fatalf("ValidateTraceDocument returned error: %v", err)
+	}
+}
+
+func TestPublishedManifestSchemaRejectsWrongType(t *testing.T) {
+	manifest := Manifest{
+		APIVersion:  "agenix/v0.1",
+		Kind:        "Skill",
+		Name:        "repo.fix_test_failure",
+		Version:     "0.1.0",
+		Description: "Fix a failing pytest suite.",
+		Tools:       []string{"fs"},
+		Outputs:     OutputSchema{Required: []string{"patch_summary"}},
+		Verifiers:   []Verifier{{Type: "schema", Name: "output_schema_check", SchemaRef: "outputs"}},
+	}
+
+	raw, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	doc["tools"] = "fs"
+
+	if err := ValidateSchemaDocument(schemaManifest, doc); err == nil {
+		t.Fatal("expected schema validation failure")
+	} else if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
 	}
 }

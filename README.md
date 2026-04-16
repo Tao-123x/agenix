@@ -79,6 +79,7 @@ python3 -m pytest -q examples/repo.fix_test_failure/fixture
 go run ./cmd/agenix run examples/repo.fix_test_failure/manifest.yaml
 go run ./cmd/agenix replay .agenix/runs/<run_id>/trace.json
 go run ./cmd/agenix verify .agenix/runs/<run_id>/trace.json
+go run ./cmd/agenix validate examples/repo.fix_test_failure/manifest.yaml
 ```
 
 The first command should fail because the fixture starts broken. The `agenix run`
@@ -99,6 +100,14 @@ source file digests, and artifact digest so the capsule can be moved and
 inspected without trusting the original directory layout. Running a capsule
 materializes it under the run directory as a workspace, preserving
 manifest-relative paths for verifier replay.
+
+Published schema files live in:
+
+- `specs/manifest.schema.json`
+- `specs/trace.schema.json`
+
+Use `agenix validate <path>` to check a manifest or trace against the published
+schema-backed contract.
 
 Publish a capsule into the local registry and pull it back out:
 

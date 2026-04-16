@@ -1,0 +1,76 @@
+{
+  "type": "object",
+  "required": [
+    "run_id",
+    "skill",
+    "model_profile",
+    "final"
+  ],
+  "properties": {
+    "run_id": { "type": "string" },
+    "skill": { "type": "string" },
+    "manifest_path": { "type": "string" },
+    "model_profile": { "type": "string" },
+    "started_at": { "type": "string" },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "network": { "type": "boolean" },
+        "filesystem": {
+          "type": "object",
+          "properties": {
+            "read": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "write": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "shell": {
+          "type": "object",
+          "properties": {
+            "allow": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "run": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "name"],
+        "properties": {
+          "type": { "type": "string" },
+          "name": { "type": "string" },
+          "duration_ms": { "type": "integer" },
+          "status": { "type": "string" },
+          "stdout": { "type": "string" },
+          "stderr": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "final": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string" },
+        "error": { "type": "string" }
+      }
+    }
+  }
+}

@@ -36,9 +36,11 @@
 
 ## Implemented minimum validation
 
-The current skeleton implements a lightweight contract check, not full JSON
-Schema validation. `ReadTrace` returns `InvalidInput` when these fields are
-missing:
+The reference runtime now publishes a schema file at `specs/trace.schema.json`.
+The current implementation still treats `ReadTrace` as the authoritative runtime
+parser and minimum semantic validator, and `agenix validate` applies the
+published schema-backed document check on top of that. `ReadTrace` returns
+`InvalidInput` when these fields are missing:
 
 - `run_id`
 - `skill`

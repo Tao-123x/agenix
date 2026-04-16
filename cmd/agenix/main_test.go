@@ -418,3 +418,85 @@ func TestCLIRunRegistryReferenceFailures(t *testing.T) {
 		})
 	}
 }
+
+func TestCLIValidateManifestAndTrace(t *testing.T) {
+	root := t.TempDir()
+	manifestPath := filepath.Join(root, "manifest.yaml")
+	tracePath := filepath.Join(root, "trace.json")
+	manifest := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+	trace := `{
+  "run_id": "run-1",
+  "skill": "repo.fix_test_failure",
+  "model_profile": "fake-scripted",
+  "started_at": "2026-04-16T00:00:00Z",
+  "policy": {"network": false},
+  "events": [{"type":"tool_call","name":"fs.read"}],
+  "final": {"status": "passed"}
+}`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tracePath, []byte(trace), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	manifestOut, err := exec.Command("go", "run", ".", "validate", manifestPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate manifest failed: %v\n%s", err, manifestOut)
+	}
+	if !strings.Contains(string(manifestOut), "kind=manifest") || !strings.Contains(string(manifestOut), "status=valid") {
+		t.Fatalf("unexpected validate manifest output: %s", manifestOut)
+	}
+
+	traceOut, err := exec.Command("go", "run", ".", "validate", tracePath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate trace failed: %v\n%s", err, traceOut)
+	}
+	if !strings.Contains(string(traceOut), "kind=trace") || !strings.Contains(string(traceOut), "status=valid") {
+		t.Fatalf("unexpected validate trace output: %s", traceOut)
+	}
+}
+
+func TestCLIValidateRejectsInvalidManifest(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	if err := os.WriteFile(path, []byte("apiVersion: agenix/v0.1\nkind: Skill\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := exec.Command("go", "run", ".", "validate", path).CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected validate failure, got success: %s", out)
+	}
+	if !strings.Contains(string(out), "error=InvalidInput") {
+		t.Fatalf("unexpected validate error: %s", out)
+	}
+}
+
+func TestCLIValidateRejectsInvalidTrace(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "trace.json")
+	if err := os.WriteFile(path, []byte(`{"run_id":"run-1","skill":"repo.fix_test_failure","model_profile":"fake-scripted","final":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := exec.Command("go", "run", ".", "validate", path).CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected validate failure, got success: %s", out)
+	}
+	if !strings.Contains(string(out), "error=InvalidInput") {
+		t.Fatalf("unexpected validate error: %s", out)
+	}
+}

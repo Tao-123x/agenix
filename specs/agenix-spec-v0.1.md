@@ -42,7 +42,7 @@
 ## 7. Skill Manifest
 
 - Required fields
-- Schema definition (JSON Schema)
+- Schema definition (published JSON Schema)
 - I/O typing rules
 - Side‑effect declarations
 - Verifier requirements
@@ -66,6 +66,7 @@
 - Required elements
 - Redaction rules
 - Replay requirements
+- Published JSON Schema
 
 ## 11. Verifier Specification
 
