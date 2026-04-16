@@ -1,6 +1,7 @@
 package agenix
 
 import (
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -26,14 +27,15 @@ func RunVerifiers(manifest Manifest, output map[string]any, trace *Trace) error 
 }
 
 func runCommandVerifier(permissions Permissions, verifier Verifier, trace *Trace) error {
-	requested := verifierArgs(verifier)
+	requested := verifierRequestedArgs(verifier)
+	launchArgv := verifierLaunchArgv(verifier)
 	timeout := verifierTimeout(verifier)
-	request := verifierRequest(verifier, requested, timeout)
+	request := verifierRequest(verifier, timeout)
 	if err := checkVerifierPolicy(verifier, requested, timeout); err != nil {
 		trace.AddVerifierEvent(verifier.Name, verifier.Type, "failed", request, ShellResult{}, err)
 		return err
 	}
-	result, err := runCommand(requested, verifier.CWD, timeout, permissions)
+	result, err := runCommand(launchArgv, verifier.CWD, timeout, permissions)
 	status := "passed"
 	if err != nil || result.ExitCode != verifier.Success.ExitCode {
 		status = "failed"
@@ -51,11 +53,19 @@ func runCommandVerifier(permissions Permissions, verifier Verifier, trace *Trace
 	return nil
 }
 
-func verifierArgs(verifier Verifier) []string {
+func verifierRequestedArgs(verifier Verifier) []string {
+	return verifierRequestedArgsForOS(runtime.GOOS, verifier, exec.LookPath)
+}
+
+func verifierLaunchArgv(verifier Verifier) []string {
+	return verifierLaunchArgvForOS(runtime.GOOS, verifier, exec.LookPath)
+}
+
+func verifierLaunchArgvForOS(goos string, verifier Verifier, lookPath lookPathFunc) []string {
 	if len(verifier.Run) > 0 {
-		return append([]string(nil), verifier.Run...)
+		return normalizeCommandArgvForOS(goos, verifier.Run, lookPath)
 	}
-	return shellArgs(verifier.Command)
+	return shellArgsForOS(goos, verifier.Command, lookPath)
 }
 
 func runSchemaVerifier(manifest Manifest, verifier Verifier, output map[string]any, trace *Trace) error {
@@ -76,14 +86,22 @@ func verifierTimeout(verifier Verifier) time.Duration {
 	return 2 * time.Minute
 }
 
-func verifierRequest(verifier Verifier, requested []string, timeout time.Duration) map[string]any {
-	return map[string]any{
-		"type":         verifier.Type,
-		"cmd":          append([]string(nil), requested...),
-		"resolved_cmd": normalizeCommandArgv(requested),
-		"cwd":          verifier.CWD,
-		"timeout_ms":   int(timeout.Milliseconds()),
+func verifierRequest(verifier Verifier, timeout time.Duration) map[string]any {
+	return verifierRequestForOS(runtime.GOOS, verifier, timeout, exec.LookPath)
+}
+
+func verifierRequestForOS(goos string, verifier Verifier, timeout time.Duration, lookPath lookPathFunc) map[string]any {
+	requested := verifierRequestedArgsForOS(goos, verifier, lookPath)
+	request := commandRequestForOS(goos, requested, verifier.CWD, timeout, lookPath)
+	request["type"] = verifier.Type
+	return request
+}
+
+func verifierRequestedArgsForOS(goos string, verifier Verifier, lookPath lookPathFunc) []string {
+	if len(verifier.Run) > 0 {
+		return append([]string(nil), verifier.Run...)
 	}
+	return shellArgsForOS(goos, verifier.Command, lookPath)
 }
 
 func checkVerifierPolicy(verifier Verifier, requested []string, timeout time.Duration) error {
@@ -109,10 +127,7 @@ func checkVerifierPolicy(verifier Verifier, requested []string, timeout time.Dur
 }
 
 func shellArgs(command string) []string {
-	if runtime.GOOS == "windows" {
-		return []string{"cmd", "/C", normalizeShellCommand(command)}
-	}
-	return []string{"sh", "-c", command}
+	return shellArgsForOS(runtime.GOOS, command, exec.LookPath)
 }
 
 func outputStrings(output map[string]any, key string) []string {

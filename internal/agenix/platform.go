@@ -5,6 +5,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 )
 
 type lookPathFunc func(string) (string, error)
@@ -24,6 +25,19 @@ func normalizeCommandArgvForOS(goos string, argv []string, lookPath lookPathFunc
 
 func normalizeShellCommand(command string) string {
 	return normalizeShellCommandForOS(runtime.GOOS, command, exec.LookPath)
+}
+
+func commandRequest(argv []string, cwd string, timeout time.Duration) map[string]any {
+	return commandRequestForOS(runtime.GOOS, argv, cwd, timeout, exec.LookPath)
+}
+
+func commandRequestForOS(goos string, argv []string, cwd string, timeout time.Duration, lookPath lookPathFunc) map[string]any {
+	return map[string]any{
+		"cmd":          append([]string(nil), argv...),
+		"resolved_cmd": normalizeCommandArgvForOS(goos, argv, lookPath),
+		"cwd":          cwd,
+		"timeout_ms":   int(timeout.Milliseconds()),
+	}
 }
 
 func normalizeShellCommandForOS(goos string, command string, lookPath lookPathFunc) string {
@@ -47,6 +61,13 @@ func normalizeShellCommandForOS(goos string, command string, lookPath lookPathFu
 
 func resolveExecutableAlias(name string) string {
 	return resolveExecutableAliasForOS(runtime.GOOS, name, exec.LookPath)
+}
+
+func shellArgsForOS(goos string, command string, lookPath lookPathFunc) []string {
+	if goos == "windows" {
+		return []string{"cmd", "/C", normalizeShellCommandForOS(goos, command, lookPath)}
+	}
+	return []string{"sh", "-c", command}
 }
 
 func resolveExecutableAliasForOS(goos string, name string, lookPath lookPathFunc) string {
