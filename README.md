@@ -100,6 +100,19 @@ inspected without trusting the original directory layout. Running a capsule
 materializes it under the run directory as a workspace, preserving
 manifest-relative paths for verifier replay.
 
+Publish a capsule into the local registry and pull it back out:
+
+```bash
+go run ./cmd/agenix publish repo.fix_test_failure.agenix
+go run ./cmd/agenix pull repo.fix_test_failure@0.1.0 -o pulled.fix_test_failure.agenix
+```
+
+The default registry root is `~/.agenix/registry`. `publish` is explicit and
+idempotent for the same digest. If you try to publish a different digest for the
+same `skill@version`, Agenix rejects it and forces a version bump so
+`skill@version` remains deterministic. `pull` currently accepts either
+`skill@version` or a full `sha256:...` digest reference.
+
 Run the read-only analysis demo:
 
 ```bash
@@ -138,7 +151,7 @@ runs the tests, and runs a verifier that checks the refactor shape.
 - Cross‑OS check for at least `fs.*` / `shell.*` / `git.*`
 
 ### Phase 2: CLI & Registry (DoD)
-- `agenix build/run/verify/replay/publish`
+- `agenix build/run/verify/replay/publish/pull`
 - Registry push/pull story for skill packages (at least local filesystem registry)
 - Benchmark suite verifying portability invariants
 

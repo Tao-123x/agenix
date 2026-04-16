@@ -27,7 +27,8 @@ Known gaps:
 - Cross-platform command and path semantics need contract tests.
 - The example set is still too narrow to prove general reuse.
 - Manifest and trace schemas are draft-level and only partially enforced.
-- Local registry, digests, signatures, and provenance are still out of scope for v0.
+- Local registry exists, but digest addressing is still local-only and
+  provenance/signing are still out of scope for v0.
 
 ## Guiding Principles
 
@@ -90,7 +91,8 @@ Goal: make skill artifacts usable without source checkout assumptions.
 Success criteria:
 
 - `build`, `inspect`, `run`, `verify`, and `replay` work on moved artifacts.
-- A local filesystem registry can store and retrieve artifacts by name and digest.
+- A local filesystem registry can store and retrieve artifacts by exact
+  `skill@version` and digest.
 - Artifact metadata is sufficient for integrity and provenance inspection.
 
 ## Milestone 5: Adapter Realism

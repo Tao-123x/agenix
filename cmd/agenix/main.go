@@ -73,13 +73,35 @@ func run(args []string) error {
 		}
 		fmt.Printf("run_id=%s skill=%s status=%s events=%d\n", summary.RunID, summary.Skill, summary.FinalStatus, summary.EventCount)
 		return nil
+	case "publish":
+		artifactPath, registryRoot, err := parsePublishArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		entry, err := agenix.PublishArtifact(agenix.PublishOptions{ArtifactPath: artifactPath, RegistryRoot: registryRoot})
+		if err != nil {
+			return err
+		}
+		fmt.Println(formatRegistryEntry(entry))
+		return nil
+	case "pull":
+		ref, outputPath, registryRoot, err := parsePullArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		summary, err := agenix.PullArtifact(agenix.PullOptions{Reference: ref, OutputPath: outputPath, RegistryRoot: registryRoot})
+		if err != nil {
+			return err
+		}
+		fmt.Println(formatArtifactSummary(summary))
+		return nil
 	default:
 		return usage()
 	}
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> | verify <trace> | replay <trace>")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> | verify <trace> | replay <trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>]")
 }
 
 func formatRunResult(status, runID, tracePath string, changedFiles, verifierSummary []string) string {
@@ -88,4 +110,40 @@ func formatRunResult(status, runID, tracePath string, changedFiles, verifierSumm
 
 func formatArtifactSummary(summary agenix.ArtifactSummary) string {
 	return fmt.Sprintf("skill=%s version=%s files=%d digest=%s artifact=%s", summary.Skill, summary.Version, summary.FileCount, summary.Digest, summary.Path)
+}
+
+func formatRegistryEntry(entry agenix.RegistryEntry) string {
+	return fmt.Sprintf("skill=%s version=%s digest=%s registry_artifact=%s", entry.Skill, entry.Version, entry.Digest, entry.ArtifactPath)
+}
+
+func parsePublishArgs(args []string) (string, string, error) {
+	if len(args) != 1 && len(args) != 3 {
+		return "", "", usage()
+	}
+	artifactPath := args[0]
+	if len(args) == 1 {
+		return artifactPath, "", nil
+	}
+	if args[1] != "--registry" {
+		return "", "", usage()
+	}
+	return artifactPath, args[2], nil
+}
+
+func parsePullArgs(args []string) (string, string, string, error) {
+	if len(args) != 3 && len(args) != 5 {
+		return "", "", "", usage()
+	}
+	if args[1] != "-o" {
+		return "", "", "", usage()
+	}
+	ref := args[0]
+	outputPath := args[2]
+	if len(args) == 3 {
+		return ref, outputPath, "", nil
+	}
+	if args[3] != "--registry" {
+		return "", "", "", usage()
+	}
+	return ref, outputPath, args[4], nil
 }

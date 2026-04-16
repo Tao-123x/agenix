@@ -107,6 +107,19 @@ contents, verifies payload sizes when recorded, and rejects capsules with
 missing, duplicate, modified, or unlocked materialized payload entries. v0.1
 does not define signatures, registry trust, or OCI distribution semantics.
 
+The reference runtime now includes a local filesystem registry rooted at
+`~/.agenix/registry` by default. Published capsules are copied into the registry
+and indexed for explicit lookup by exact `skill@version` or full digest. v0.1
+registry semantics are intentionally narrow:
+
+- `publish` is explicit; `build` does not imply publish.
+- `pull` is explicit; `run` and `inspect` do not yet resolve registry
+  references directly.
+- the registry rejects publishing a different digest for an already published
+  `skill@version`
+- the registry is local only and does not define signatures, trust policy, or
+  remote distribution semantics
+
 When running a capsule, the runtime materializes it into the run workspace:
 `manifest.yaml` remains at the workspace root, and `files/...` entries are
 restored without the `files/` prefix. The workspace remains available for trace

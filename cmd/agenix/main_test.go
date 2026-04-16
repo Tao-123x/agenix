@@ -197,3 +197,57 @@ func TestCLIRunSmallRefactorArtifact(t *testing.T) {
 		t.Fatalf("unexpected run output: %s", text)
 	}
 }
+
+func TestCLIPublishAndPullArtifact(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+	if err := os.WriteFile(filepath.Join(skillDir, "manifest.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "README.md"), []byte("# demo\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := filepath.Join(root, "skill.agenix")
+	registry := filepath.Join(root, "registry")
+	pulled := filepath.Join(root, "pulled.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+	publishOut, err := exec.Command("go", "run", ".", "publish", artifact, "--registry", registry).CombinedOutput()
+	if err != nil {
+		t.Fatalf("publish failed: %v\n%s", err, publishOut)
+	}
+	if !strings.Contains(string(publishOut), "registry_artifact=") || !strings.Contains(string(publishOut), "digest=sha256:") {
+		t.Fatalf("unexpected publish output: %s", publishOut)
+	}
+
+	pullOut, err := exec.Command("go", "run", ".", "pull", "repo.fix_test_failure@0.1.0", "-o", pulled, "--registry", registry).CombinedOutput()
+	if err != nil {
+		t.Fatalf("pull failed: %v\n%s", err, pullOut)
+	}
+	if !strings.Contains(string(pullOut), "artifact="+pulled) || !strings.Contains(string(pullOut), "skill=repo.fix_test_failure") {
+		t.Fatalf("unexpected pull output: %s", pullOut)
+	}
+}
