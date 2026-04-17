@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -466,6 +467,156 @@ func TestRuntimeRejectsAdapterMissingCapabilitiesBeforeExecution(t *testing.T) {
 	}
 }
 
+func TestRuntimeRejectsRemoteAdapterWhenManifestDisablesNetwork(t *testing.T) {
+	root := t.TempDir()
+	manifestPath := writePolicyPreflightManifest(t, root, false)
+	runDir := filepath.Join(root, ".agenix-runs")
+	called := false
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter: remoteMetadataOnlyAdapter{
+			called: &called,
+			metadata: AdapterMetadata{
+				Name:            "remote-stub",
+				ModelProfile:    "remote-stub",
+				Transport:       "remote",
+				SupportedSkills: []string{"policy.preflight"},
+				Capabilities: CapabilitySet{
+					ToolCalling:      true,
+					StructuredOutput: true,
+					MaxContextTokens: 32000,
+					ReasoningLevel:   "medium",
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected adapter policy failure")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if called {
+		t.Fatal("adapter Execute should not have been called")
+	}
+	trace, readErr := ReadTrace(result.TracePath)
+	if readErr != nil {
+		t.Fatalf("ReadTrace returned error: %v", readErr)
+	}
+	if !traceHasAdapterEvent(*trace, "capability_check", "ok") {
+		t.Fatalf("trace does not contain successful adapter capability_check event: %#v", trace.Events)
+	}
+	if !traceHasAdapterEvent(*trace, "policy_check", "failed") {
+		t.Fatalf("trace does not contain failed adapter policy_check event: %#v", trace.Events)
+	}
+	wantSequence := []string{"selection:ok", "capability_check:ok", "policy_check:failed"}
+	if got := adapterEventSequence(*trace); !reflect.DeepEqual(got, wantSequence) {
+		t.Fatalf("adapter event sequence = %#v, want %#v", got, wantSequence)
+	}
+	if traceHasAdapterEvent(*trace, "execute", "failed") || traceHasAdapterEvent(*trace, "execute", "ok") {
+		t.Fatalf("remote adapter policy failure should not reach execute: %#v", trace.Events)
+	}
+}
+
+func TestRuntimeAllowsRemoteAdapterWhenManifestEnablesNetwork(t *testing.T) {
+	root := t.TempDir()
+	manifestPath := writePolicyPreflightManifest(t, root, true)
+	runDir := filepath.Join(root, ".agenix-runs")
+	called := false
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter: remoteMetadataOnlyAdapter{
+			called: &called,
+			metadata: AdapterMetadata{
+				Name:            "remote-stub",
+				ModelProfile:    "remote-stub",
+				Transport:       "remote",
+				SupportedSkills: []string{"policy.preflight"},
+				Capabilities: CapabilitySet{
+					ToolCalling:      true,
+					StructuredOutput: true,
+					MaxContextTokens: 32000,
+					ReasoningLevel:   "medium",
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected adapter execute failure")
+	}
+	if !IsErrorClass(err, ErrDriverError) {
+		t.Fatalf("expected DriverError, got %v", err)
+	}
+	if !called {
+		t.Fatal("adapter Execute should have been called")
+	}
+	trace, readErr := ReadTrace(result.TracePath)
+	if readErr != nil {
+		t.Fatalf("ReadTrace returned error: %v", readErr)
+	}
+	if !traceHasAdapterEvent(*trace, "capability_check", "ok") {
+		t.Fatalf("trace does not contain successful adapter capability_check event: %#v", trace.Events)
+	}
+	if !traceHasAdapterEvent(*trace, "policy_check", "ok") {
+		t.Fatalf("trace does not contain successful adapter policy_check event: %#v", trace.Events)
+	}
+	if !traceHasAdapterEvent(*trace, "execute", "failed") {
+		t.Fatalf("trace does not contain failed adapter execute event: %#v", trace.Events)
+	}
+	wantSequence := []string{"selection:ok", "capability_check:ok", "policy_check:ok", "execute:failed"}
+	if got := adapterEventSequence(*trace); !reflect.DeepEqual(got, wantSequence) {
+		t.Fatalf("adapter event sequence = %#v, want %#v", got, wantSequence)
+	}
+}
+
+func TestRuntimeRejectsUnknownAdapterTransportBeforeExecute(t *testing.T) {
+	root := t.TempDir()
+	manifestPath := writePolicyPreflightManifest(t, root, true)
+	runDir := filepath.Join(root, ".agenix-runs")
+	called := false
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter: remoteMetadataOnlyAdapter{
+			called: &called,
+			metadata: AdapterMetadata{
+				Name:            "unknown-transport-stub",
+				ModelProfile:    "unknown-transport-stub",
+				Transport:       "satellite",
+				SupportedSkills: []string{"policy.preflight"},
+				Capabilities: CapabilitySet{
+					ToolCalling:      true,
+					StructuredOutput: true,
+					MaxContextTokens: 32000,
+					ReasoningLevel:   "medium",
+				},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected adapter policy failure")
+	}
+	if !IsErrorClass(err, ErrPolicyViolation) {
+		t.Fatalf("expected PolicyViolation, got %v", err)
+	}
+	if called {
+		t.Fatal("adapter Execute should not have been called")
+	}
+	trace, readErr := ReadTrace(result.TracePath)
+	if readErr != nil {
+		t.Fatalf("ReadTrace returned error: %v", readErr)
+	}
+	wantSequence := []string{"selection:ok", "capability_check:ok", "policy_check:failed"}
+	if got := adapterEventSequence(*trace); !reflect.DeepEqual(got, wantSequence) {
+		t.Fatalf("adapter event sequence = %#v, want %#v", got, wantSequence)
+	}
+}
+
 func TestVerifyExistingTraceRerunsVerifiers(t *testing.T) {
 	root := t.TempDir()
 	repo := writePythonFixture(t, root, false)
@@ -783,6 +934,47 @@ recovery:
 	}
 }
 
+func writePolicyPreflightManifest(t *testing.T, root string, network bool) string {
+	t.Helper()
+	path := filepath.Join(root, "manifest.yaml")
+	networkValue := "false"
+	if network {
+		networkValue = "true"
+	}
+	content := `apiVersion: agenix/v0.1
+kind: Skill
+name: policy.preflight
+version: 0.1.0
+description: Exercise adapter policy preflight.
+capabilities:
+  requires:
+    tool_calling: true
+    structured_output: true
+    max_context_tokens: 32000
+    reasoning_level: medium
+tools:
+  - fs
+permissions:
+  network: ` + networkValue + `
+  filesystem:
+    read:
+      - .
+    write:
+      - .
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func traceHasEvent(trace Trace, eventType, name string) bool {
 	for _, event := range trace.Events {
 		if event.Type == eventType && event.Name == name {
@@ -808,6 +1000,17 @@ func traceHasAdapterEvent(trace Trace, name, status string) bool {
 		}
 	}
 	return false
+}
+
+func adapterEventSequence(trace Trace) []string {
+	sequence := []string{}
+	for _, event := range trace.Events {
+		if event.Type != "adapter" {
+			continue
+		}
+		sequence = append(sequence, event.Name+":"+event.Status)
+	}
+	return sequence
 }
 
 func traceHasVerifierRequestField(trace Trace, name, field string) bool {
@@ -854,6 +1057,22 @@ func (a failingExecuteAdapter) Metadata() AdapterMetadata {
 
 func (a failingExecuteAdapter) Execute(_ Manifest, _ *Tools) (map[string]any, error) {
 	return nil, a.err
+}
+
+type remoteMetadataOnlyAdapter struct {
+	metadata AdapterMetadata
+	called   *bool
+}
+
+func (a remoteMetadataOnlyAdapter) Metadata() AdapterMetadata {
+	return a.metadata
+}
+
+func (a remoteMetadataOnlyAdapter) Execute(_ Manifest, _ *Tools) (map[string]any, error) {
+	if a.called != nil {
+		*a.called = true
+	}
+	return nil, NewError(ErrDriverError, "stub remote adapter")
 }
 
 func toolRequestPaths(trace Trace, name string) []string {

@@ -6,6 +6,7 @@ func (HeuristicAnalyzeTestFailuresAdapter) Metadata() AdapterMetadata {
 	return AdapterMetadata{
 		Name:            "heuristic-analyze",
 		ModelProfile:    "heuristic-analyze",
+		Transport:       "local",
 		SupportedSkills: []string{"repo.analyze_test_failures"},
 		Capabilities: CapabilitySet{
 			ToolCalling:      true,

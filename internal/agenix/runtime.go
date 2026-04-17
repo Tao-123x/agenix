@@ -31,6 +31,7 @@ type Adapter interface {
 type AdapterMetadata struct {
 	Name            string        `json:"name"`
 	ModelProfile    string        `json:"model_profile"`
+	Transport       string        `json:"transport,omitempty"`
 	SupportedSkills []string      `json:"supported_skills,omitempty"`
 	Capabilities    CapabilitySet `json:"capabilities"`
 }
@@ -75,6 +76,7 @@ func Run(options RunOptions) (RunResult, error) {
 	if metadata.Name == "" {
 		metadata.Name = metadata.ModelProfile
 	}
+	metadata.Transport = normalizeTransport(metadata.Transport)
 	trace := NewTrace(manifest.Name, metadata.ModelProfile, manifest.Permissions)
 	trace.RunID = runID
 	trace.ManifestPath = manifestPath
@@ -90,6 +92,22 @@ func Run(options RunOptions) (RunResult, error) {
 		return result, err
 	}
 	trace.AddAdapterEvent("capability_check", "ok", manifest.Capabilities.Requires, metadata.Capabilities, nil)
+	policyRequest := map[string]any{
+		"skill":   manifest.Name,
+		"network": manifest.Permissions.Network,
+	}
+	policyResult := map[string]string{
+		"adapter":   metadata.Name,
+		"transport": metadata.Transport,
+	}
+	if err := validateAdapterPolicy(manifest, metadata); err != nil {
+		trace.AddAdapterEvent("policy_check", "failed", policyRequest, policyResult, err)
+		trace.SetFinal("failed", nil, err.Error())
+		_ = WriteTrace(tracePath, trace)
+		result.Status = "failed"
+		return result, err
+	}
+	trace.AddAdapterEvent("policy_check", "ok", policyRequest, policyResult, nil)
 
 	policy, err := NewPolicyWithBase(manifest.Permissions, filepath.Dir(manifestPath))
 	if err != nil {
@@ -129,6 +147,7 @@ func (FakeFixTestFailureAdapter) Metadata() AdapterMetadata {
 	return AdapterMetadata{
 		Name:            "fake-scripted",
 		ModelProfile:    fakeModelProfile,
+		Transport:       "local",
 		SupportedSkills: []string{"repo.fix_test_failure", "repo.analyze_test_failures", "repo.apply_small_refactor"},
 		Capabilities: CapabilitySet{
 			ToolCalling:      true,
@@ -168,6 +187,24 @@ func validateAdapter(manifest Manifest, metadata AdapterMetadata) error {
 	}
 	if required.ReasoningLevel != "" && reasoningRank(metadata.Capabilities.ReasoningLevel) < reasoningRank(required.ReasoningLevel) {
 		return NewError(ErrUnsupportedAdapter, "adapter "+metadata.Name+" reasoning_level too low")
+	}
+	return nil
+}
+
+func normalizeTransport(transport string) string {
+	normalized := strings.ToLower(strings.TrimSpace(transport))
+	if normalized == "" {
+		return "local"
+	}
+	return normalized
+}
+
+func validateAdapterPolicy(manifest Manifest, metadata AdapterMetadata) error {
+	if metadata.Transport != "local" && metadata.Transport != "remote" {
+		return NewError(ErrPolicyViolation, "unknown adapter transport: "+metadata.Transport)
+	}
+	if metadata.Transport == "remote" && !manifest.Permissions.Network {
+		return NewError(ErrPolicyViolation, "remote adapter transport requires permissions.network=true")
 	}
 	return nil
 }
