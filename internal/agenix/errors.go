@@ -4,6 +4,7 @@ import "fmt"
 
 const (
 	ErrInvalidInput       = "InvalidInput"
+	ErrUnsupportedAdapter = "UnsupportedAdapter"
 	ErrPermissionDenied   = "PermissionDenied"
 	ErrNotFound           = "NotFound"
 	ErrTimeout            = "Timeout"

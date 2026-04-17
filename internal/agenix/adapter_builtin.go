@@ -27,6 +27,6 @@ func ResolveBuiltinAdapter(name string) (Adapter, error) {
 	case "heuristic-analyze":
 		return HeuristicAnalyzeTestFailuresAdapter{}, nil
 	default:
-		return nil, NewError(ErrInvalidInput, "unknown adapter: "+name)
+		return nil, NewError(ErrUnsupportedAdapter, "unknown adapter: "+name)
 	}
 }

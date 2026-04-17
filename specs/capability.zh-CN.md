@@ -16,8 +16,9 @@
 - Runtime 检查 model profile。
 - 结果：
   - **ok：** 继续执行
+  - **fail：** runtime 在 tool call 之前以 `UnsupportedAdapter` 拒绝执行
+- 尚未实现：
   - **degraded：** 带告警继续执行
-  - **fail：** runtime 报告 `unsupported`
 
 ## 当前已实现的最小能力
 
@@ -28,6 +29,8 @@
 - runtime 会在 adapter 执行前拒绝不支持的 skill
 - runtime 会拒绝缺失 `tool_calling`、`structured_output`、`max_context_tokens`
   不足或 `reasoning_level` 不足的情况
+- 不支持的 adapter 选择和 preflight 不匹配现在会以 `UnsupportedAdapter`
+  暴露，而不是落回 `InvalidInput`
 - trace 会记录 `adapter` 事件，用于表示 selection 和 capability check 结果
 
 当前 runtime 还没有实现 degraded execution path，也没有实现 vendor-specific

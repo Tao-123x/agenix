@@ -16,7 +16,7 @@
 - Runtime checks model profile.
 - Current implemented outcomes:
   - **ok:** proceed
-  - **fail:** runtime rejects execution before tool calls
+  - **fail:** runtime rejects execution before tool calls as `UnsupportedAdapter`
 - Planned but not yet implemented:
   - **degraded:** proceed with warnings
 
@@ -30,6 +30,8 @@ The current runtime implements a local preflight check before any tool call:
 - runtime rejects unsupported skills before adapter execution
 - runtime rejects missing `tool_calling`, `structured_output`, insufficient
   `max_context_tokens`, or insufficient `reasoning_level`
+- unsupported adapter selection and preflight mismatches surface as
+  `UnsupportedAdapter`, rather than falling back to `InvalidInput`
 - trace records `adapter` events for selection, capability check, and execute
   success/failure states
 

@@ -47,8 +47,8 @@ Tradeoffs:
 
 - this remains a local builtin adapter, not provider integration
 - degraded capability execution remains out of scope for v0
-- unsupported adapter and invalid input still share the existing CLI error class
-  surface
+- adapter selection and preflight mismatch now use `UnsupportedAdapter`, but
+  provider-specific adapter error detail remains out of scope
 
 ## Follow-up
 

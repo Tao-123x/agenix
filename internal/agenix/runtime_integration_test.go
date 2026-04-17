@@ -381,8 +381,8 @@ func TestBuiltinHeuristicAdapterFailsPreflightForUnsupportedSkill(t *testing.T) 
 	if err == nil {
 		t.Fatal("expected adapter support failure")
 	}
-	if !IsErrorClass(err, ErrInvalidInput) {
-		t.Fatalf("expected InvalidInput, got %v", err)
+	if !IsErrorClass(err, ErrUnsupportedAdapter) {
+		t.Fatalf("expected UnsupportedAdapter, got %v", err)
 	}
 	trace, readErr := ReadTrace(result.TracePath)
 	if readErr != nil {
@@ -448,8 +448,8 @@ func TestRuntimeRejectsAdapterMissingCapabilitiesBeforeExecution(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected adapter capability failure")
 	}
-	if !IsErrorClass(err, ErrInvalidInput) {
-		t.Fatalf("expected InvalidInput, got %v", err)
+	if !IsErrorClass(err, ErrUnsupportedAdapter) {
+		t.Fatalf("expected UnsupportedAdapter, got %v", err)
 	}
 	if called {
 		t.Fatal("adapter Execute should not have been called")

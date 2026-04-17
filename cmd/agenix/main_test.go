@@ -210,6 +210,44 @@ func TestCLIRunReadOnlyAnalyzeArtifactWithHeuristicAdapter(t *testing.T) {
 	}
 }
 
+func TestCLIRunRejectsUnknownAdapter(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join("..", "..", "examples", "repo.fix_test_failure")
+	artifact := filepath.Join(root, "fix.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+
+	runOut, err := exec.Command("go", "run", ".", "run", artifact, "--adapter", "missing-adapter").CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected unknown adapter failure, got success: %s", runOut)
+	}
+	if !strings.Contains(string(runOut), "error=UnsupportedAdapter") {
+		t.Fatalf("unexpected run error: %s", runOut)
+	}
+}
+
+func TestCLIRunRejectsUnsupportedAdapterForSkill(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join("..", "..", "examples", "repo.fix_test_failure")
+	artifact := filepath.Join(root, "fix.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+
+	runOut, err := exec.Command("go", "run", ".", "run", artifact, "--adapter", "heuristic-analyze").CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected unsupported adapter failure, got success: %s", runOut)
+	}
+	if !strings.Contains(string(runOut), "error=UnsupportedAdapter") {
+		t.Fatalf("unexpected run error: %s", runOut)
+	}
+}
+
 func TestCLIRunSmallRefactorArtifact(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join("..", "..", "examples", "repo.apply_small_refactor")

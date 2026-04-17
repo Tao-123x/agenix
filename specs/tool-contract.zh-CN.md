@@ -8,6 +8,7 @@
 - Tool 响应必须可 JSON 序列化。
 - 错误必须稳定，并归类到以下类型之一：
   - `InvalidInput`
+  - `UnsupportedAdapter`
   - `PermissionDenied`
   - `NotFound`
   - `Timeout`
@@ -76,3 +77,13 @@
 - Tool 结果必须记录在 trace 中。
 - Runtime 可以选择直接从 trace replay，而不是重新执行。
 - 非确定性工具必须显式声明（`nondeterministic: true`），并标记为不能严格回放。
+
+## Adapter failure taxonomy
+
+- `InvalidInput` 只用于 manifest / trace 格式错误，以及 CLI 用法错误。
+- `UnsupportedAdapter` 只用于 adapter 选择和 preflight 不匹配，包括：
+  - adapter 名称不存在
+  - adapter 不支持请求的 skill
+  - adapter capability 集合不满足 `capabilities.requires`
+- `DriverError` 用于 adapter 在通过 selection 和 preflight 之后的执行失败。
+- `VerificationFailed` 仍然表示 adapter 执行完成之后的 verifier 失败。

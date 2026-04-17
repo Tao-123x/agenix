@@ -35,7 +35,8 @@ Maya Chen
 ## Blockers
 
 - one final full acceptance sweep still needs to be written down and checked
-- unsupported adapter vs invalid input still share the existing CLI error class
+- unsupported adapter, unsupported skill, and adapter preflight mismatch now
+  use `UnsupportedAdapter`
 
 ## Do Not Build Next
 

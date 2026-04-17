@@ -52,8 +52,8 @@ go build ./cmd/agenix
 ## Risks
 
 - the non-fake adapter is still builtin and local, not subprocess- or provider-backed
-- unsupported adapter and invalid input still share the current CLI error-class
-  surface
+- unknown adapter, unsupported skill, and adapter preflight mismatch now use
+  `UnsupportedAdapter`, but provider-backed adapter semantics are still absent
 - bilingual spec mirrors are now slightly behind the English source again
 
 ## Customer Alignment

@@ -30,8 +30,8 @@ Working runtime surface:
 
 Known gaps:
 
-- Post-v0 work should focus on sharper adapter taxonomy, provider-backed
-  adapters, and stronger provenance/registry guarantees.
+- Post-v0 work should focus on provider-backed adapters and stronger
+  provenance/registry guarantees.
 - Manifest and trace schemas are enforced at the current reference-runtime
   minimum, but remain intentionally narrow compared with a future stable spec.
 - Local registry remains local-only; signatures and remote trust policy stay
@@ -111,6 +111,13 @@ Success criteria:
 - The runtime can run against more than the fake scripted adapter.
 - Capability negotiation failures are explicit and diagnosable.
 - The runtime distinguishes invalid skill, unsupported adapter, driver failure, policy violation, and verification failure.
+
+Current status:
+
+- The reference runtime now exposes `UnsupportedAdapter` separately from
+  `InvalidInput`, `DriverError`, `PolicyViolation`, and `VerificationFailed`.
+- Remaining work in this milestone is about adapter realism beyond builtin
+  adapters, not about the basic error taxonomy.
 
 ## Defer
 

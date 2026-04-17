@@ -148,26 +148,26 @@ func (FakeFixTestFailureAdapter) Execute(manifest Manifest, tools *Tools) (map[s
 	case "repo.apply_small_refactor":
 		return executeApplySmallRefactor(manifest, tools)
 	default:
-		return nil, NewError(ErrInvalidInput, "fake adapter does not support skill: "+manifest.Name)
+		return nil, NewError(ErrUnsupportedAdapter, "fake adapter does not support skill: "+manifest.Name)
 	}
 }
 
 func validateAdapter(manifest Manifest, metadata AdapterMetadata) error {
 	if len(metadata.SupportedSkills) > 0 && !containsString(metadata.SupportedSkills, manifest.Name) {
-		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" does not support skill: "+manifest.Name)
+		return NewError(ErrUnsupportedAdapter, "adapter "+metadata.Name+" does not support skill: "+manifest.Name)
 	}
 	required := manifest.Capabilities.Requires
 	if required.ToolCalling && !metadata.Capabilities.ToolCalling {
-		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" missing capability: tool_calling")
+		return NewError(ErrUnsupportedAdapter, "adapter "+metadata.Name+" missing capability: tool_calling")
 	}
 	if required.StructuredOutput && !metadata.Capabilities.StructuredOutput {
-		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" missing capability: structured_output")
+		return NewError(ErrUnsupportedAdapter, "adapter "+metadata.Name+" missing capability: structured_output")
 	}
 	if required.MaxContextTokens > 0 && metadata.Capabilities.MaxContextTokens < required.MaxContextTokens {
-		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" max_context_tokens too small")
+		return NewError(ErrUnsupportedAdapter, "adapter "+metadata.Name+" max_context_tokens too small")
 	}
 	if required.ReasoningLevel != "" && reasoningRank(metadata.Capabilities.ReasoningLevel) < reasoningRank(required.ReasoningLevel) {
-		return NewError(ErrInvalidInput, "adapter "+metadata.Name+" reasoning_level too low")
+		return NewError(ErrUnsupportedAdapter, "adapter "+metadata.Name+" reasoning_level too low")
 	}
 	return nil
 }

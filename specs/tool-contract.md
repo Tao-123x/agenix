@@ -8,6 +8,7 @@
 - Tool responses must be JSON-serializable.
 - Errors must be stable and classify as:
   - `InvalidInput`
+  - `UnsupportedAdapter`
   - `PermissionDenied`
   - `NotFound`
   - `Timeout`
@@ -89,3 +90,17 @@ Constraints:
 - Runtime may choose replay from trace rather than re-run.
 - Non-deterministic tools must be explicit (with `nondeterministic: true`) and
   flagged as not strictly replayable.
+
+## Adapter failure taxonomy
+
+- `InvalidInput` is reserved for malformed manifests, malformed traces, and CLI
+  usage errors.
+- `UnsupportedAdapter` is reserved for adapter selection and preflight
+  mismatches, including:
+  - unknown adapter name
+  - adapter does not support the requested skill
+  - adapter capability set does not satisfy `capabilities.requires`
+- `DriverError` covers adapter execution failures after selection and preflight
+  have already succeeded.
+- `VerificationFailed` remains the verifier surface after adapter execution has
+  completed.
