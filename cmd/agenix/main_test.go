@@ -259,6 +259,52 @@ func TestCLIRunRemoteAnalyzeArtifactWithStubProvider(t *testing.T) {
 	}
 }
 
+func TestCLIRunRemoteAnalyzeArtifactWithStubProviderRateLimitFailure(t *testing.T) {
+	var callCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		atomic.AddInt32(&callCount, 1)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", "120")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{
+  "error": {
+    "message": "rate limit exceeded",
+    "type": "rate_limit_error",
+    "code": "rate_limit_exceeded"
+  }
+}`))
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	skillDir := filepath.Join("..", "..", "examples", "repo.analyze_test_failures.remote")
+	artifact := filepath.Join(root, "analyze.remote.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+
+	cmd := exec.Command("go", "run", ".", "run", artifact, "--adapter", "openai-analyze")
+	cmd.Env = append(os.Environ(), "OPENAI_API_KEY=test-key", "AGENIX_OPENAI_BASE_URL="+server.URL)
+	runOut, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected run failure, got success: %s", runOut)
+	}
+	if atomic.LoadInt32(&callCount) == 0 {
+		t.Fatal("stub provider server was not called")
+	}
+
+	text := string(runOut)
+	if !strings.Contains(text, "error=DriverError") {
+		t.Fatalf("missing driver error class: %s", text)
+	}
+	if !strings.Contains(text, "message=DriverError: OpenAI responses API returned 429 Too Many Requests: rate limit exceeded (retry after 120s)") {
+		t.Fatalf("missing mapped provider details: %s", text)
+	}
+}
+
 func TestCLIRunRejectsUnknownAdapter(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join("..", "..", "examples", "repo.fix_test_failure")

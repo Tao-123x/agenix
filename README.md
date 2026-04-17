@@ -201,6 +201,9 @@ OPENAI_API_KEY="$OPENAI_API_KEY" go run ./cmd/agenix run examples/repo.analyze_t
 This path is opt-in, requires `permissions.network=true`, and is outside the
 default offline CI sweep. It exercises the provider-backed remote adapter path
 without changing the manifest contract or widening the default runtime surface.
+When that provider-backed adapter fails, Agenix still reports `DriverError`.
+If the upstream response includes a status and message, Agenix preserves both,
+and 429 responses may also include retry-after guidance.
 
 Run the constrained refactor demo:
 

@@ -172,12 +172,19 @@ go run ./cmd/agenix run repo.fix_test_failure@0.1.0
 
 ```bash
 go run ./cmd/agenix run examples/repo.analyze_test_failures/manifest.yaml
+go run ./cmd/agenix run examples/repo.analyze_test_failures/manifest.yaml --adapter heuristic-analyze
 go run ./cmd/agenix build examples/repo.analyze_test_failures -o repo.analyze_test_failures.agenix
 go run ./cmd/agenix run repo.analyze_test_failures.agenix
 ```
 
 这个 skill 会分析一个已知失败的 pytest fixture，并且不声明任何写权限。成功运行时，
-它会报告空的 `changed_files` 列表，并且 trace 中不会出现 `fs.write` 事件。
+它会报告空的 `changed_files` 列表，并且 trace 中不会出现 `fs.write` 事件。可选的
+`--adapter heuristic-analyze` 路径使用单独的只读 builtin adapter，而不是默认的 fake scripted
+adapter，但仍然走同一套 runtime policy、trace、verifier、replay 和 artifact 流程。
+
+如果你运行的是可选的 provider-backed `--adapter openai-analyze` 路径，失败时仍然会
+报告 `DriverError`。当上游响应里带有状态码和消息时，Agenix 会保留这些信息；对于
+429 响应，还可能附带 retry-after 提示。
 
 运行受限重构 demo：
 

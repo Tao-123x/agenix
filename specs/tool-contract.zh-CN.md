@@ -26,6 +26,10 @@
 约束：
 
 - 写入必须发生在已声明的 write scope 之内。
+- 当 runtime 已知 manifest 或 workspace root 时，repo-relative 路径会先以该 root 为基准
+  解析，再做 scope 检查。
+- scope 检查在比较目标路径与已声明的 read/write scope 之前，必须先解析已经存在的
+  symlink path segment。
 
 ### shell
 
@@ -86,4 +90,6 @@
   - adapter 不支持请求的 skill
   - adapter capability 集合不满足 `capabilities.requires`
 - `DriverError` 用于 adapter 在通过 selection 和 preflight 之后的执行失败。
+- provider-backed adapter 的失败仍然属于 `DriverError`；当上游响应带有状态码 / 消息
+  时，runtime 应当暴露这些信息；对于 429 响应，还可能附带 retry-after 提示。
 - `VerificationFailed` 仍然表示 adapter 执行完成之后的 verifier 失败。

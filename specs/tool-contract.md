@@ -102,5 +102,8 @@ Constraints:
   - adapter capability set does not satisfy `capabilities.requires`
 - `DriverError` covers adapter execution failures after selection and preflight
   have already succeeded.
+- Provider-backed adapter failures stay `DriverError`; when the provider
+  response includes a status/message, the runtime should surface those details,
+  and 429 responses may also include retry-after guidance.
 - `VerificationFailed` remains the verifier surface after adapter execution has
   completed.

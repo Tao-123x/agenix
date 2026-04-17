@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type OpenAIAnalyzeRequest struct {
@@ -66,7 +69,7 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return OpenAIAnalyzeResult{}, NewError(ErrDriverError, fmt.Sprintf("OpenAI responses API returned %s", resp.Status))
+		return OpenAIAnalyzeResult{}, NewError(ErrDriverError, openAIResponseErrorMessage(resp))
 	}
 
 	var decoded struct {
@@ -95,4 +98,60 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 	}
 
 	return OpenAIAnalyzeResult{}, NewError(ErrDriverError, "missing OpenAI structured output")
+}
+
+func openAIResponseErrorMessage(resp *http.Response) string {
+	message := fmt.Sprintf("OpenAI responses API returned %s", resp.Status)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil || len(body) == 0 {
+		return message
+	}
+
+	var decoded struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return message
+	}
+
+	apiMessage := strings.TrimSpace(decoded.Error.Message)
+	if apiMessage != "" {
+		message = message + ": " + apiMessage
+	}
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		if retryAfter := parseRetryAfter(resp.Header.Get("Retry-After")); retryAfter != "" {
+			message += " (retry after " + retryAfter + ")"
+		}
+	}
+
+	return message
+}
+
+func parseRetryAfter(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+
+	if seconds, err := strconv.Atoi(value); err == nil && seconds >= 0 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+
+	if retryAt, err := http.ParseTime(value); err == nil {
+		delta := time.Until(retryAt)
+		if delta < 0 {
+			delta = 0
+		}
+		seconds := int(delta.Round(time.Second) / time.Second)
+		if seconds < 0 {
+			seconds = 0
+		}
+		return fmt.Sprintf("%ds", seconds)
+	}
+
+	return ""
 }
