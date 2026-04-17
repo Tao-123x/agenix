@@ -16,6 +16,9 @@
 
 - Runtime must deny tool calls outside policy.
 - Violations become traceable events.
+- Remote adapters are subject to manifest `permissions.network`.
+- `transport=remote` against `permissions.network=false` must fail as
+  `PolicyViolation` before adapter execution.
 - When the runtime knows the manifest or workspace root, repo-relative
   filesystem paths must resolve against that root, not the verifier process
   cwd.

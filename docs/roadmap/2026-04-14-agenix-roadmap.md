@@ -32,6 +32,8 @@ Known gaps:
 
 - Post-v0 work should focus on provider-backed adapters and stronger
   provenance/registry guarantees.
+- Provider-backed adapter work now has an explicit read-only spike path behind
+  the remote policy boundary, and it remains outside the v0 acceptance sweep.
 - Manifest and trace schemas are enforced at the current reference-runtime
   minimum, but remain intentionally narrow compared with a future stable spec.
 - Local registry remains local-only; signatures and remote trust policy stay

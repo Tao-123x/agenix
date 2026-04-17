@@ -192,6 +192,16 @@ separate read-only builtin adapter instead of the default fake scripted one,
 while still going through the same runtime policy, trace, verifier, replay, and
 artifact loop.
 
+Run the opt-in remote smoke path:
+
+```bash
+OPENAI_API_KEY="$OPENAI_API_KEY" go run ./cmd/agenix run examples/repo.analyze_test_failures.remote/manifest.yaml --adapter openai-analyze
+```
+
+This path is opt-in, requires `permissions.network=true`, and is outside the
+default offline CI sweep. It exercises the provider-backed remote adapter path
+without changing the manifest contract or widening the default runtime surface.
+
 Run the constrained refactor demo:
 
 ```bash

@@ -69,5 +69,6 @@ Maya impact:
 
 The next agent should:
 
-- keep post-v0 work focused on provider-backed adapter realism or stronger
-  provenance, not on inventing more top-level error classes
+- keep post-v0 work focused on the provider-backed read-only spike behind the
+  remote policy boundary or stronger provenance, not on inventing more
+  top-level error classes

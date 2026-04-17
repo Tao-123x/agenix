@@ -22,7 +22,7 @@
 
 ## Implemented minimum
 
-The current runtime implements a local preflight check before any tool call:
+The current runtime implements separate preflight stages before any tool call:
 
 - manifest may declare `capabilities.requires`
 - the adapter reports `name`, `model_profile`, `supported_skills`, and a minimum
@@ -32,8 +32,12 @@ The current runtime implements a local preflight check before any tool call:
   `max_context_tokens`, or insufficient `reasoning_level`
 - unsupported adapter selection and preflight mismatches surface as
   `UnsupportedAdapter`, rather than falling back to `InvalidInput`
+- remote-network policy preflight is evaluated separately from capability
+  preflight
 - trace records `adapter` events for selection, capability check, and execute
   success/failure states
+
+Provider-backed adapters use the same capability contract as local adapters.
 
 The current runtime does not yet implement a degraded execution path,
 vendor-specific capability discovery, or provider-specific negotiation.

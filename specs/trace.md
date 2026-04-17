@@ -24,6 +24,8 @@
 - Persisted trace files must be written through runtime redaction.
 - Runtime applies built-in redaction rules for common secret-bearing keys and
   text patterns before writing trace JSON.
+- Provider-backed `adapter.execute` events may record provider and model
+  metadata, but they must not persist credentials or raw provider payloads.
 - Skills may append additional redaction rules through a top-level
   `redaction.keys` and `redaction.patterns` manifest block.
 - Redaction should preserve surrounding audit context and replace only the

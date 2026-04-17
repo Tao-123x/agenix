@@ -1,6 +1,7 @@
 package agenix
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/fs"
 	"net/http"
@@ -371,29 +372,56 @@ func TestRuntimeKeepsVerifierFailureDistinctFromAdapterExecute(t *testing.T) {
 	}
 }
 
-func TestRuntimeRunsRemoteAnalyzeSkillWithStubProvider(t *testing.T) {
+func TestRemoteAdapterTraceRedactsSecretsAndKeepsProviderMetadata(t *testing.T) {
+	fakeSecret := "sk-test-remote-secret"
 	var callCount int32
+	handlerErrs := make(chan error, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		atomic.AddInt32(&callCount, 1)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-  "output": [
-    {
-      "type": "message",
-      "content": [
-        {
-          "type": "output_text",
-          "text": "{\"analysis_summary\":\"fixture fails\",\"failing_tests\":[\"test_mathlib.py::test_adds_numbers\"],\"likely_root_cause\":\"mathlib.add subtracts instead of adding\",\"changed_files\":[]}"
-        }
-      ]
-    }
-  ]
-}`))
+		providerOutput := map[string]any{
+			"analysis_summary":  "token=" + fakeSecret,
+			"failing_tests":     []string{"test_mathlib.py::test_adds_numbers"},
+			"likely_root_cause": "mathlib.add subtracts instead of adding",
+			"changed_files":     []string{},
+		}
+		outputText, err := json.Marshal(providerOutput)
+		if err != nil {
+			select {
+			case handlerErrs <- err:
+			default:
+			}
+			http.Error(w, "marshal provider output", http.StatusInternalServerError)
+			return
+		}
+		response := map[string]any{
+			"output": []any{
+				map[string]any{
+					"type": "message",
+					"content": []any{
+						map[string]any{
+							"type": "output_text",
+							"text": string(outputText),
+						},
+					},
+				},
+			},
+		}
+		payload, err := json.Marshal(response)
+		if err != nil {
+			select {
+			case handlerErrs <- err:
+			default:
+			}
+			http.Error(w, "marshal provider response", http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write(payload)
 	}))
 	defer server.Close()
 
-	t.Setenv("OPENAI_API_KEY", "test-key")
+	t.Setenv("OPENAI_API_KEY", fakeSecret)
 	t.Setenv("AGENIX_OPENAI_BASE_URL", server.URL)
 
 	manifestPath := filepath.Join("..", "..", "examples", "repo.analyze_test_failures.remote", "manifest.yaml")
@@ -414,11 +442,26 @@ func TestRuntimeRunsRemoteAnalyzeSkillWithStubProvider(t *testing.T) {
 	if readErr != nil {
 		t.Fatalf("ReadTrace returned error: %v", readErr)
 	}
+	rawTrace, err := os.ReadFile(result.TracePath)
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	if bytes.Contains(rawTrace, []byte(fakeSecret)) {
+		t.Fatalf("persisted trace leaked API key: %s", rawTrace)
+	}
+	if !bytes.Contains(rawTrace, []byte("token=[REDACTED]")) {
+		t.Fatalf("persisted trace did not redact serialized secret: %s", rawTrace)
+	}
 	if !traceHasAdapterEvent(*trace, "policy_check", "ok") {
 		t.Fatalf("trace does not contain adapter policy_check event: %#v", trace.Events)
 	}
 	if atomic.LoadInt32(&callCount) == 0 {
 		t.Fatal("stub provider server was not called")
+	}
+	select {
+	case err := <-handlerErrs:
+		t.Fatalf("stub provider handler failed: %v", err)
+	default:
 	}
 	if !traceHasAdapterRequestValue(*trace, "execute", "provider", "openai") {
 		t.Fatalf("trace does not contain provider metadata: %#v", trace.Events)
