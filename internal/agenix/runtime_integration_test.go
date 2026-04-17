@@ -3,10 +3,13 @@ package agenix
 import (
 	"encoding/json"
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -365,6 +368,81 @@ func TestRuntimeKeepsVerifierFailureDistinctFromAdapterExecute(t *testing.T) {
 	}
 	if !traceHasVerifier(*trace, "output_schema_check", "failed") {
 		t.Fatalf("trace does not contain failed schema verifier event: %#v", trace.Events)
+	}
+}
+
+func TestRuntimeRunsRemoteAnalyzeSkillWithStubProvider(t *testing.T) {
+	var callCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		atomic.AddInt32(&callCount, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+  "output": [
+    {
+      "type": "message",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"analysis_summary\":\"fixture fails\",\"failing_tests\":[\"test_mathlib.py::test_adds_numbers\"],\"likely_root_cause\":\"mathlib.add subtracts instead of adding\",\"changed_files\":[]}"
+        }
+      ]
+    }
+  ]
+}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	t.Setenv("AGENIX_OPENAI_BASE_URL", server.URL)
+
+	manifestPath := filepath.Join("..", "..", "examples", "repo.analyze_test_failures.remote", "manifest.yaml")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	result, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter:      mustResolveAdapter(t, "openai-analyze"),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if result.Status != "passed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	trace, readErr := ReadTrace(result.TracePath)
+	if readErr != nil {
+		t.Fatalf("ReadTrace returned error: %v", readErr)
+	}
+	if !traceHasAdapterEvent(*trace, "policy_check", "ok") {
+		t.Fatalf("trace does not contain adapter policy_check event: %#v", trace.Events)
+	}
+	if atomic.LoadInt32(&callCount) == 0 {
+		t.Fatal("stub provider server was not called")
+	}
+	if !traceHasAdapterRequestValue(*trace, "execute", "provider", "openai") {
+		t.Fatalf("trace does not contain provider metadata: %#v", trace.Events)
+	}
+	if !traceHasAdapterRequestValue(*trace, "execute", "model", "openai:gpt-5.4-mini") {
+		t.Fatalf("trace does not contain model metadata: %#v", trace.Events)
+	}
+}
+
+func TestRuntimeRemoteAnalyzeFailsWithoutAPIKey(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	manifestPath := filepath.Join("..", "..", "examples", "repo.analyze_test_failures.remote", "manifest.yaml")
+	runDir := filepath.Join(t.TempDir(), ".agenix-runs")
+
+	_, err := Run(RunOptions{
+		ManifestPath: manifestPath,
+		RunDir:       runDir,
+		Adapter:      mustResolveAdapter(t, "openai-analyze"),
+	})
+	if err == nil {
+		t.Fatal("expected missing key failure")
+	}
+	if !IsErrorClass(err, ErrDriverError) {
+		t.Fatalf("expected DriverError, got %v", err)
 	}
 }
 
@@ -1000,6 +1078,33 @@ func traceHasAdapterEvent(trace Trace, name, status string) bool {
 		}
 	}
 	return false
+}
+
+func traceHasAdapterRequestValue(trace Trace, name, field, want string) bool {
+	for _, event := range trace.Events {
+		if event.Type != "adapter" || event.Name != name {
+			continue
+		}
+		raw, _ := json.Marshal(event.Request)
+		var request map[string]any
+		if err := json.Unmarshal(raw, &request); err != nil {
+			continue
+		}
+		got, ok := request[field].(string)
+		if ok && got == want {
+			return true
+		}
+	}
+	return false
+}
+
+func mustResolveAdapter(t *testing.T, name string) Adapter {
+	t.Helper()
+	adapter, err := ResolveBuiltinAdapter(name)
+	if err != nil {
+		t.Fatalf("ResolveBuiltinAdapter(%q) returned error: %v", name, err)
+	}
+	return adapter
 }
 
 func adapterEventSequence(trace Trace) []string {

@@ -31,6 +31,7 @@ type Adapter interface {
 type AdapterMetadata struct {
 	Name            string        `json:"name"`
 	ModelProfile    string        `json:"model_profile"`
+	Provider        string        `json:"provider,omitempty"`
 	Transport       string        `json:"transport,omitempty"`
 	SupportedSkills []string      `json:"supported_skills,omitempty"`
 	Capabilities    CapabilitySet `json:"capabilities"`
@@ -117,6 +118,12 @@ func Run(options RunOptions) (RunResult, error) {
 	}
 
 	executeRequest := map[string]string{"skill": manifest.Name, "adapter": metadata.Name}
+	if metadata.Provider != "" {
+		executeRequest["provider"] = metadata.Provider
+	}
+	if metadata.ModelProfile != "" {
+		executeRequest["model"] = metadata.ModelProfile
+	}
 	output, err := adapter.Execute(manifest, NewTools(policy, trace))
 	if err != nil {
 		trace.AddAdapterEvent("execute", "failed", executeRequest, output, err)

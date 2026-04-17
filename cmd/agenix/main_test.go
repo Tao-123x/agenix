@@ -1,10 +1,13 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -206,6 +209,52 @@ func TestCLIRunReadOnlyAnalyzeArtifactWithHeuristicAdapter(t *testing.T) {
 	text := string(runOut)
 	if !strings.Contains(text, "status=passed") ||
 		!strings.Contains(text, "verifiers=fixture_still_fails:passed,output_schema_check:passed") {
+		t.Fatalf("unexpected run output: %s", text)
+	}
+}
+
+func TestCLIRunRemoteAnalyzeArtifactWithStubProvider(t *testing.T) {
+	var callCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		atomic.AddInt32(&callCount, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+  "output": [
+    {
+      "type": "message",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"analysis_summary\":\"fixture fails\",\"failing_tests\":[\"test_mathlib.py::test_adds_numbers\"],\"likely_root_cause\":\"mathlib.add subtracts instead of adding\",\"changed_files\":[]}"
+        }
+      ]
+    }
+  ]
+}`))
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	skillDir := filepath.Join("..", "..", "examples", "repo.analyze_test_failures.remote")
+	artifact := filepath.Join(root, "analyze.remote.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+
+	cmd := exec.Command("go", "run", ".", "run", artifact, "--adapter", "openai-analyze")
+	cmd.Env = append(os.Environ(), "OPENAI_API_KEY=test-key", "AGENIX_OPENAI_BASE_URL="+server.URL)
+	runOut, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run artifact failed: %v\n%s", err, runOut)
+	}
+	if atomic.LoadInt32(&callCount) == 0 {
+		t.Fatal("stub provider server was not called")
+	}
+	text := string(runOut)
+	if !strings.Contains(text, "status=passed") {
 		t.Fatalf("unexpected run output: %s", text)
 	}
 }
