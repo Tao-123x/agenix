@@ -1,8 +1,11 @@
 package agenix
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"syscall"
 	"testing"
 )
 
@@ -221,5 +224,33 @@ verifiers:
 }
 
 func isSymlinkUnsupported(err error) bool {
-	return os.IsPermission(err)
+	if os.IsPermission(err) {
+		return true
+	}
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	return errors.Is(err, syscall.Errno(1314))
+}
+
+func TestIsSymlinkUnsupported(t *testing.T) {
+	if !isSymlinkUnsupported(os.ErrPermission) {
+		t.Fatal("expected permission error to be treated as unsupported")
+	}
+
+	if runtime.GOOS == "windows" {
+		err := &os.LinkError{
+			Op:  "symlink",
+			Old: "outside",
+			New: "link",
+			Err: syscall.Errno(1314),
+		}
+		if !isSymlinkUnsupported(err) {
+			t.Fatal("expected Windows privilege-not-held symlink error to be treated as unsupported")
+		}
+	}
+
+	if isSymlinkUnsupported(os.ErrNotExist) {
+		t.Fatal("expected unrelated error to remain supported")
+	}
 }
