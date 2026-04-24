@@ -96,6 +96,16 @@ Prerequisites:
 - Go 1.22+
 - Python 3 with `pytest`
 
+On a fresh Ubuntu host, install the runtime prerequisites first:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y golang-go python3 python3-pytest
+```
+
+If your distro package provides Go older than 1.22, install a newer Go
+toolchain before running the demo.
+
 Run the canonical demo from the repository root:
 
 ```bash
@@ -111,6 +121,14 @@ command fixes it through the runtime `fs.write` tool, records every tool and
 verifier event in a JSON trace, and only reports success after verifier pass.
 `agenix replay` then reads that trace and prints the recorded event sequence plus
 the final output without re-executing the tool loop.
+
+The canonical demo intentionally mutates
+`examples/repo.fix_test_failure/fixture/mathlib.py`. Restore it before reusing
+the source checkout as a broken fixture:
+
+```bash
+git restore examples/repo.fix_test_failure/fixture/mathlib.py
+```
 
 Build and inspect a portable capsule:
 

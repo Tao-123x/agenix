@@ -96,6 +96,15 @@ Agenix 定义了五层：
 - Go 1.22+
 - Python 3，并安装 `pytest`
 
+在全新的 Ubuntu 主机上，先安装 runtime 依赖：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y golang-go python3 python3-pytest
+```
+
+如果发行版软件源里的 Go 版本低于 1.22，请先安装更新的 Go toolchain。
+
 在仓库根目录运行 canonical demo：
 
 ```bash
@@ -109,6 +118,14 @@ go run ./cmd/agenix validate examples/repo.fix_test_failure/manifest.yaml
 第一条命令应该失败，因为 fixture 的初始状态就是坏的。`agenix run`
 会通过 runtime 的 `fs.write` 工具完成修复，把每一次 tool 和 verifier
 事件写进 JSON trace，并且只有在 verifier 通过后才报告成功。
+
+canonical demo 会有意修改
+`examples/repo.fix_test_failure/fixture/mathlib.py`。如果你还想把当前源码目录继续
+当作初始失败 fixture 使用，请先恢复它：
+
+```bash
+git restore examples/repo.fix_test_failure/fixture/mathlib.py
+```
 
 构建并检查一个可移植 capsule：
 
