@@ -3,7 +3,9 @@ package agenix
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type OpenAIAnalyzeAdapter struct{}
@@ -52,6 +54,7 @@ func (OpenAIAnalyzeAdapter) Execute(manifest Manifest, tools *Tools) (map[string
 		BaseURL: os.Getenv("AGENIX_OPENAI_BASE_URL"),
 		APIKey:  os.Getenv("OPENAI_API_KEY"),
 		Model:   "gpt-5.4-mini",
+		Timeout: openAIAnalyzeTimeoutFromEnv(),
 	}
 	result, err := client.Analyze(OpenAIAnalyzeRequest{
 		Skill:   manifest.Name,
@@ -66,6 +69,18 @@ func (OpenAIAnalyzeAdapter) Execute(manifest Manifest, tools *Tools) (map[string
 		"likely_root_cause": result.LikelyRootCause,
 		"changed_files":     result.ChangedFiles,
 	}, nil
+}
+
+func openAIAnalyzeTimeoutFromEnv() time.Duration {
+	value := strings.TrimSpace(os.Getenv("AGENIX_OPENAI_TIMEOUT_MS"))
+	if value == "" {
+		return 0
+	}
+	milliseconds, err := strconv.Atoi(value)
+	if err != nil || milliseconds <= 0 {
+		return 0
+	}
+	return time.Duration(milliseconds) * time.Millisecond
 }
 
 type HeuristicAnalyzeTestFailuresAdapter struct{}

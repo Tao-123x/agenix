@@ -2,7 +2,9 @@ package agenix
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,8 +29,11 @@ type OpenAIAnalyzeClient struct {
 	BaseURL string
 	APIKey  string
 	Model   string
+	Timeout time.Duration
 	Client  *http.Client
 }
+
+const defaultOpenAIAnalyzeTimeout = 30 * time.Second
 
 func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyzeResult, error) {
 	if strings.TrimSpace(c.APIKey) == "" {
@@ -42,6 +47,12 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 	if client == nil {
 		client = http.DefaultClient
 	}
+	timeout := c.Timeout
+	if timeout <= 0 {
+		timeout = defaultOpenAIAnalyzeTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	body := struct {
 		Model string `json:"model"`
@@ -55,7 +66,7 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 		return OpenAIAnalyzeResult{}, WrapError(ErrDriverError, "encode OpenAI request", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(baseURL, "/")+"/responses", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+"/responses", bytes.NewReader(payload))
 	if err != nil {
 		return OpenAIAnalyzeResult{}, WrapError(ErrDriverError, "create OpenAI request", err)
 	}
@@ -64,6 +75,9 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 
 	resp, err := client.Do(req)
 	if err != nil {
+		if ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) {
+			return OpenAIAnalyzeResult{}, NewError(ErrTimeout, "OpenAI responses API timed out")
+		}
 		return OpenAIAnalyzeResult{}, WrapError(ErrDriverError, "call OpenAI responses API", err)
 	}
 	defer resp.Body.Close()

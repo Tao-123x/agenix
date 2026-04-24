@@ -219,9 +219,12 @@ OPENAI_API_KEY="$OPENAI_API_KEY" go run ./cmd/agenix run examples/repo.analyze_t
 This path is opt-in, requires `permissions.network=true`, and is outside the
 default offline CI sweep. It exercises the provider-backed remote adapter path
 without changing the manifest contract or widening the default runtime surface.
+Provider-backed OpenAI requests default to a 30 second timeout. Set
+`AGENIX_OPENAI_TIMEOUT_MS` to override that timeout for local smoke runs.
 When that provider-backed adapter fails, Agenix still reports `DriverError`.
 If the upstream response includes a status and message, Agenix preserves both,
 and 429 responses may also include retry-after guidance.
+Provider HTTP timeouts are reported separately as `Timeout`.
 
 Run the constrained refactor demo:
 

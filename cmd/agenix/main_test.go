@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestCLIReplayPrintsSummary(t *testing.T) {
@@ -302,6 +303,49 @@ func TestCLIRunRemoteAnalyzeArtifactWithStubProviderRateLimitFailure(t *testing.
 	}
 	if !strings.Contains(text, "message=DriverError: OpenAI responses API returned 429 Too Many Requests: rate limit exceeded (retry after 120s)") {
 		t.Fatalf("missing mapped provider details: %s", text)
+	}
+}
+
+func TestCLIRunRemoteAnalyzeArtifactWithStubProviderTimeout(t *testing.T) {
+	var callCount int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		atomic.AddInt32(&callCount, 1)
+		time.Sleep(50 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output":[]}`))
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	skillDir := filepath.Join("..", "..", "examples", "repo.analyze_test_failures.remote")
+	artifact := filepath.Join(root, "analyze.remote.agenix")
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build failed: %v\n%s", err, buildOut)
+	}
+
+	cmd := exec.Command("go", "run", ".", "run", artifact, "--adapter", "openai-analyze")
+	cmd.Env = append(os.Environ(),
+		"OPENAI_API_KEY=test-key",
+		"AGENIX_OPENAI_BASE_URL="+server.URL,
+		"AGENIX_OPENAI_TIMEOUT_MS=5",
+	)
+	runOut, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected run failure, got success: %s", runOut)
+	}
+	if atomic.LoadInt32(&callCount) == 0 {
+		t.Fatal("stub provider server was not called")
+	}
+
+	text := string(runOut)
+	if !strings.Contains(text, "error=Timeout") {
+		t.Fatalf("missing timeout error class: %s", text)
+	}
+	if !strings.Contains(text, "message=Timeout: OpenAI responses API timed out") {
+		t.Fatalf("missing timeout details: %s", text)
 	}
 }
 

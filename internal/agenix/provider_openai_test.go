@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOpenAIClientAnalyzeReturnsStructuredOutput(t *testing.T) {
@@ -291,6 +292,33 @@ func TestOpenAIClientAnalyzeFailsWithoutAPIKey(t *testing.T) {
 	}
 	if !IsErrorClass(err, ErrDriverError) {
 		t.Fatalf("expected DriverError, got %v", err)
+	}
+}
+
+func TestOpenAIClientAnalyzeTimesOutSlowProvider(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output":[]}`))
+	}))
+	defer server.Close()
+
+	client := OpenAIAnalyzeClient{
+		BaseURL: server.URL,
+		APIKey:  "test-key",
+		Model:   "gpt-5.4",
+		Timeout: 5 * time.Millisecond,
+	}
+
+	_, err := client.Analyze(OpenAIAnalyzeRequest{
+		Skill:   "repo.analyze_test_failures",
+		Context: "fixture context",
+	})
+	if err == nil {
+		t.Fatal("expected timeout")
+	}
+	if !IsErrorClass(err, ErrTimeout) {
+		t.Fatalf("expected Timeout, got %v", err)
 	}
 }
 
