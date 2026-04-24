@@ -51,10 +51,11 @@ func (OpenAIAnalyzeAdapter) Execute(manifest Manifest, tools *Tools) (map[string
 	context.WriteString(testContent)
 
 	client := OpenAIAnalyzeClient{
-		BaseURL: os.Getenv("AGENIX_OPENAI_BASE_URL"),
-		APIKey:  os.Getenv("OPENAI_API_KEY"),
-		Model:   "gpt-5.4-mini",
-		Timeout: openAIAnalyzeTimeoutFromEnv(),
+		BaseURL:          os.Getenv("AGENIX_OPENAI_BASE_URL"),
+		APIKey:           os.Getenv("OPENAI_API_KEY"),
+		Model:            "gpt-5.4-mini",
+		Timeout:          openAIAnalyzeTimeoutFromEnv(),
+		MaxResponseBytes: openAIAnalyzeMaxResponseBytesFromEnv(),
 	}
 	result, err := client.Analyze(OpenAIAnalyzeRequest{
 		Skill:   manifest.Name,
@@ -81,6 +82,18 @@ func openAIAnalyzeTimeoutFromEnv() time.Duration {
 		return 0
 	}
 	return time.Duration(milliseconds) * time.Millisecond
+}
+
+func openAIAnalyzeMaxResponseBytesFromEnv() int64 {
+	value := strings.TrimSpace(os.Getenv("AGENIX_OPENAI_MAX_RESPONSE_BYTES"))
+	if value == "" {
+		return 0
+	}
+	bytes, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || bytes <= 0 {
+		return 0
+	}
+	return bytes
 }
 
 type HeuristicAnalyzeTestFailuresAdapter struct{}

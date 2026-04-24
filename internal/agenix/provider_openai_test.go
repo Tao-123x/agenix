@@ -280,6 +280,65 @@ func TestOpenAIClientAnalyzeFallsBackToStatusOnlyForMalformedErrorBody(t *testin
 	}
 }
 
+func TestOpenAIClientAnalyzeRejectsOversizedSuccessfulResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output":[{"content":[{"type":"output_text","text":"` + strings.Repeat("x", 128) + `"}]}]}`))
+	}))
+	defer server.Close()
+
+	client := OpenAIAnalyzeClient{
+		BaseURL:          server.URL,
+		APIKey:           "test-key",
+		Model:            "gpt-5.4",
+		MaxResponseBytes: 64,
+	}
+
+	_, err := client.Analyze(OpenAIAnalyzeRequest{
+		Skill:   "repo.analyze_test_failures",
+		Context: "fixture context",
+	})
+	if err == nil {
+		t.Fatal("expected oversized response error")
+	}
+	if !IsErrorClass(err, ErrDriverError) {
+		t.Fatalf("expected DriverError, got %v", err)
+	}
+	if got := err.Error(); got != "DriverError: OpenAI response body exceeded 64 bytes" {
+		t.Fatalf("error = %q", got)
+	}
+}
+
+func TestOpenAIClientAnalyzeFallsBackForOversizedErrorBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"` + strings.Repeat("x", 128) + `"}}`))
+	}))
+	defer server.Close()
+
+	client := OpenAIAnalyzeClient{
+		BaseURL:          server.URL,
+		APIKey:           "test-key",
+		Model:            "gpt-5.4",
+		MaxResponseBytes: 64,
+	}
+
+	_, err := client.Analyze(OpenAIAnalyzeRequest{
+		Skill:   "repo.analyze_test_failures",
+		Context: "fixture context",
+	})
+	if err == nil {
+		t.Fatal("expected provider error")
+	}
+	if !IsErrorClass(err, ErrDriverError) {
+		t.Fatalf("expected DriverError, got %v", err)
+	}
+	if got := err.Error(); got != "DriverError: OpenAI responses API returned 500 Internal Server Error" {
+		t.Fatalf("error = %q", got)
+	}
+}
+
 func TestOpenAIClientAnalyzeFailsWithoutAPIKey(t *testing.T) {
 	client := OpenAIAnalyzeClient{}
 

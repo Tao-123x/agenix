@@ -200,10 +200,11 @@ go run ./cmd/agenix run repo.analyze_test_failures.agenix
 adapter，但仍然走同一套 runtime policy、trace、verifier、replay 和 artifact 流程。
 
 如果你运行的是可选的 provider-backed `--adapter openai-analyze` 路径，失败时仍然会
-报告 `DriverError`。Provider-backed OpenAI 请求默认 30 秒超时；本地 smoke 运行时可以
-通过 `AGENIX_OPENAI_TIMEOUT_MS` 覆盖。当上游响应里带有状态码和消息时，Agenix
-会保留这些信息；对于 429 响应，还可能附带 retry-after 提示。Provider HTTP 超时会单独
-报告为 `Timeout`。
+报告 `DriverError`。Provider-backed OpenAI 请求默认 30 秒超时，响应体上限默认 1 MiB；
+本地 smoke 运行时可以通过 `AGENIX_OPENAI_TIMEOUT_MS` 或
+`AGENIX_OPENAI_MAX_RESPONSE_BYTES` 覆盖。当上游响应里带有状态码和消息时，Agenix
+会保留这些信息；对于 429 响应，还可能附带 retry-after 提示。超出响应体上限的 provider
+响应会报告为 `DriverError`；Provider HTTP 超时会单独报告为 `Timeout`。
 
 运行受限重构 demo：
 

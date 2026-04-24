@@ -26,14 +26,16 @@ type OpenAIAnalyzeResult struct {
 }
 
 type OpenAIAnalyzeClient struct {
-	BaseURL string
-	APIKey  string
-	Model   string
-	Timeout time.Duration
-	Client  *http.Client
+	BaseURL          string
+	APIKey           string
+	Model            string
+	Timeout          time.Duration
+	MaxResponseBytes int64
+	Client           *http.Client
 }
 
 const defaultOpenAIAnalyzeTimeout = 30 * time.Second
+const defaultOpenAIAnalyzeMaxResponseBytes = 1 << 20
 
 func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyzeResult, error) {
 	if strings.TrimSpace(c.APIKey) == "" {
@@ -50,6 +52,10 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 	timeout := c.Timeout
 	if timeout <= 0 {
 		timeout = defaultOpenAIAnalyzeTimeout
+	}
+	maxResponseBytes := c.MaxResponseBytes
+	if maxResponseBytes <= 0 {
+		maxResponseBytes = defaultOpenAIAnalyzeMaxResponseBytes
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -83,7 +89,12 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return OpenAIAnalyzeResult{}, NewError(ErrDriverError, openAIResponseErrorMessage(resp))
+		return OpenAIAnalyzeResult{}, NewError(ErrDriverError, openAIResponseErrorMessage(resp, maxResponseBytes))
+	}
+
+	responseBody, err := readOpenAIResponseBody(resp.Body, maxResponseBytes)
+	if err != nil {
+		return OpenAIAnalyzeResult{}, err
 	}
 
 	var decoded struct {
@@ -94,7 +105,7 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 			} `json:"content"`
 		} `json:"output"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
+	if err := json.Unmarshal(responseBody, &decoded); err != nil {
 		return OpenAIAnalyzeResult{}, WrapError(ErrDriverError, "decode OpenAI response", err)
 	}
 
@@ -114,10 +125,10 @@ func (c OpenAIAnalyzeClient) Analyze(request OpenAIAnalyzeRequest) (OpenAIAnalyz
 	return OpenAIAnalyzeResult{}, NewError(ErrDriverError, "missing OpenAI structured output")
 }
 
-func openAIResponseErrorMessage(resp *http.Response) string {
+func openAIResponseErrorMessage(resp *http.Response, maxResponseBytes int64) string {
 	message := fmt.Sprintf("OpenAI responses API returned %s", resp.Status)
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readOpenAIResponseBody(resp.Body, maxResponseBytes)
 	if err != nil || len(body) == 0 {
 		return message
 	}
@@ -143,6 +154,18 @@ func openAIResponseErrorMessage(resp *http.Response) string {
 	}
 
 	return message
+}
+
+func readOpenAIResponseBody(reader io.Reader, maxBytes int64) ([]byte, error) {
+	limited := &io.LimitedReader{R: reader, N: maxBytes + 1}
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, WrapError(ErrDriverError, "read OpenAI response body", err)
+	}
+	if int64(len(body)) > maxBytes {
+		return nil, NewError(ErrDriverError, fmt.Sprintf("OpenAI response body exceeded %d bytes", maxBytes))
+	}
+	return body, nil
 }
 
 func parseRetryAfter(value string) string {

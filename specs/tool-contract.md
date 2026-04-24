@@ -105,6 +105,8 @@ Constraints:
 - Provider-backed adapter failures stay `DriverError`; when the provider
   response includes a status/message, the runtime should surface those details,
   and 429 responses may also include retry-after guidance.
+- Provider-backed adapters must bound response body reads. Oversized provider
+  responses are classified as `DriverError`.
 - Provider-backed HTTP timeouts are classified as `Timeout`, not
   `DriverError`.
 - `VerificationFailed` remains the verifier surface after adapter execution has

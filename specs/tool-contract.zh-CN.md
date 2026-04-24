@@ -92,5 +92,7 @@
 - `DriverError` 用于 adapter 在通过 selection 和 preflight 之后的执行失败。
 - provider-backed adapter 的失败仍然属于 `DriverError`；当上游响应带有状态码 / 消息
   时，runtime 应当暴露这些信息；对于 429 响应，还可能附带 retry-after 提示。
+- provider-backed adapter 必须限制响应体读取大小。超出上限的 provider 响应归类为
+  `DriverError`。
 - provider-backed HTTP 超时归类为 `Timeout`，而不是 `DriverError`。
 - `VerificationFailed` 仍然表示 adapter 执行完成之后的 verifier 失败。
