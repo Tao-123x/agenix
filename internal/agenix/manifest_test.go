@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -418,5 +419,46 @@ redaction:
 	}
 	if !IsErrorClass(err, ErrInvalidInput) {
 		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+}
+
+func TestLoadManifestRejectsRedactionSecretGroupOutsideRegexCaptures(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := filepath.Join(dir, "manifest.yaml")
+	raw := `apiVersion: agenix/v0.1
+kind: Skill
+name: repo.fix_test_failure
+version: 0.1.0
+description: Fix a failing pytest suite.
+tools:
+  - fs
+permissions:
+  network: false
+outputs:
+  required:
+    - patch_summary
+verifiers:
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+redaction:
+  patterns:
+    - name: broken
+      regex: '(token=)([^\\s]+)'
+      secret_group: 3
+`
+	if err := os.WriteFile(manifestPath, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadManifest(manifestPath)
+	if err == nil {
+		t.Fatal("expected invalid redaction secret_group to fail")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "secret_group") {
+		t.Fatalf("error did not explain secret_group failure: %v", err)
 	}
 }

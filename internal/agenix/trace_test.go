@@ -153,3 +153,29 @@ func TestWriteTraceUsesManifestAddedRedactionRules(t *testing.T) {
 		t.Fatalf("trace leaked manifest-defined secret: %s", text)
 	}
 }
+
+func TestWriteTraceRejectsInvalidRedactionSecretGroupWithoutWritingTrace(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "trace.json")
+	trace := NewTrace("repo.fix_test_failure", "fake-scripted", Permissions{})
+	trace.SetRedaction(RedactionConfig{
+		Patterns: []RedactionPattern{
+			{
+				Name:        "bad-token",
+				Regex:       `(token=)([^\s]+)`,
+				SecretGroup: 3,
+			},
+		},
+	})
+	trace.SetFinal("failed", nil, "token=secret")
+
+	err := WriteTrace(path, trace)
+	if err == nil {
+		t.Fatal("expected invalid redaction secret_group to fail")
+	}
+	if !IsErrorClass(err, ErrInvalidInput) {
+		t.Fatalf("expected InvalidInput, got %v", err)
+	}
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+		t.Fatalf("trace file should not be written, stat err = %v", statErr)
+	}
+}

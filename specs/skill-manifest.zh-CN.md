@@ -109,6 +109,8 @@ recovery:
 - Skill 可以声明顶层 `redaction` 块。
 - `redaction.keys` 会把结构化敏感字段名追加到 runtime 默认集合里。
 - `redaction.patterns` 会追加文本掩码规则，字段包括 `name`、`regex` 和 `secret_group`。
+- `redaction.patterns[*].secret_group` 是从 1 开始的 regex 捕获组编号，不能超过
+  `regex` 中实际捕获组数量。
 - 非法 redaction pattern 必须在 manifest load 阶段以 `InvalidInput` 失败。
 
 ## 当前已实现的最小校验

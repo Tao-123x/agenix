@@ -113,6 +113,8 @@ recovery:
   default set.
 - `redaction.patterns` appends text masking rules using `name`, `regex`, and
   `secret_group`.
+- `redaction.patterns[*].secret_group` is a 1-based regex capture group index
+  and must not exceed the number of capture groups in `regex`.
 - Invalid redaction patterns must fail manifest load as `InvalidInput`.
 
 ## Implemented minimum validation

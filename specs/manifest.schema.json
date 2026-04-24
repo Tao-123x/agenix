@@ -131,7 +131,7 @@
             "properties": {
               "name": { "type": "string" },
               "regex": { "type": "string" },
-              "secret_group": { "type": "integer" }
+              "secret_group": { "type": "integer", "minimum": 1 }
             }
           }
         }

@@ -1,6 +1,7 @@
 package agenix
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -32,6 +33,9 @@ func compileRedactionConfig(extra RedactionConfig) (compiledRedactionConfig, err
 		if err != nil {
 			return compiledRedactionConfig{}, WrapError(ErrInvalidInput, "compile redaction regex", err)
 		}
+		if err := validateRedactionPatternSecretGroup(pattern, compiled); err != nil {
+			return compiledRedactionConfig{}, err
+		}
 		config.patterns = append(config.patterns, compiledPattern{
 			name:        pattern.Name,
 			regex:       compiled,
@@ -39,6 +43,17 @@ func compileRedactionConfig(extra RedactionConfig) (compiledRedactionConfig, err
 		})
 	}
 	return config, nil
+}
+
+func validateRedactionPatternSecretGroup(pattern RedactionPattern, compiled *regexp.Regexp) error {
+	if pattern.SecretGroup <= 0 {
+		return NewError(ErrInvalidInput, fmt.Sprintf("redaction pattern %q secret_group must be positive", pattern.Name))
+	}
+	captureGroups := compiled.NumSubexp()
+	if pattern.SecretGroup > captureGroups {
+		return NewError(ErrInvalidInput, fmt.Sprintf("redaction pattern %q secret_group %d exceeds capture group count %d", pattern.Name, pattern.SecretGroup, captureGroups))
+	}
+	return nil
 }
 
 func redactValue(value any, config compiledRedactionConfig) any {
@@ -96,6 +111,9 @@ func redactText(text string, config compiledRedactionConfig) string {
 		for _, match := range matches {
 			groupStart := match[2*pattern.secretGroup]
 			groupEnd := match[2*pattern.secretGroup+1]
+			if groupStart < 0 || groupEnd < 0 {
+				continue
+			}
 			builder.WriteString(out[cursor:groupStart])
 			builder.WriteString("[REDACTED]")
 			cursor = groupEnd
