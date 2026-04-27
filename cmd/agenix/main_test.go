@@ -47,6 +47,27 @@ func TestFormatRunResultIncludesVerifierSummary(t *testing.T) {
 	}
 }
 
+func TestUsageMentionsAcceptanceCommand(t *testing.T) {
+	err := usage()
+	if err == nil {
+		t.Fatal("expected usage error")
+	}
+	if !strings.Contains(err.Error(), "agenix acceptance") {
+		t.Fatalf("usage missing acceptance command: %v", err)
+	}
+}
+
+func TestCLIAcceptanceRunsV0Sweep(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "acceptance").CombinedOutput()
+	if err != nil {
+		t.Fatalf("acceptance failed: %v\n%s", err, out)
+	}
+	text := strings.TrimSpace(string(out))
+	if text != "status=passed skills=3 runs=6" {
+		t.Fatalf("unexpected acceptance output: %s", text)
+	}
+}
+
 func TestCLIBuildAndInspect(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, "skill")

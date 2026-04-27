@@ -240,16 +240,34 @@ go run ./cmd/agenix run repo.apply_small_refactor.agenix
 This skill may write only `greeter.py`. A passing run reports that single file,
 runs the tests, and runs a verifier that checks the refactor shape.
 
-Run the reference v0 acceptance sweep:
+Run the V0 release gate:
 
 ```bash
-go test ./internal/agenix -run TestV0AcceptanceSweepForCanonicalSkills -count=1
+go run ./cmd/agenix acceptance
 ```
 
-This sweep codifies the reference-runtime claim across all three canonical
-skills. It validates manifest schema, builds portable capsules, inspects them,
-executes artifact and registry-reference runs, reruns verifiers, replays traces,
-and checks local registry publish/pull flows.
+`agenix acceptance` is the canonical V0 acceptance command for the reference
+runtime. It runs the local acceptance sweep across all three canonical skills:
+manifest validation, portable capsule build and inspect, artifact execution,
+trace validation, verifier rerun, trace replay, local registry publish/pull, and
+direct registry-reference execution.
+
+For local full verification before cutting or reviewing a V0 release, run:
+
+```bash
+go run ./cmd/agenix acceptance
+go test -count=1 ./...
+go vet ./...
+go build ./cmd/agenix
+```
+
+V0 acceptance is intentionally a local reference-runtime gate. It does not claim
+a strong sandbox, remote executor semantics, registry trust, signatures, OCI
+distribution, or provider-backed remote adapter coverage. The opt-in
+`openai-analyze` smoke path remains outside the default V0 acceptance sweep.
+
+See [V0 release checklist](docs/v0-release-checklist.md) for the factual release
+gate.
 
 ## Roadmap & Definition of Done (DoD)
 
@@ -266,9 +284,9 @@ and checks local registry publish/pull flows.
 - Cross‑OS check for at least `fs.*` / `shell.*` / `git.*`
 
 ### Phase 2: CLI & Registry (DoD)
-- `agenix build/run/verify/replay/publish/pull`
+- `agenix build/run/verify/replay/validate/publish/pull/acceptance`
 - Registry push/pull story for skill packages (at least local filesystem registry)
-- Benchmark suite verifying portability invariants
+- Acceptance gate verifying portability invariants across canonical skills
 
 ## Contributing
 

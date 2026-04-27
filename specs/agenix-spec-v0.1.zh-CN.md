@@ -131,8 +131,35 @@ reference runtime 现在还包含一个本地 filesystem registry，默认根目
 ## 14. 参考 Demo
 
 - `repo.fix_test_failure`
+- `repo.analyze_test_failures`
+- `repo.apply_small_refactor`
 
-## 15. 未来方向
+## 15. V0 Acceptance Gate
+
+reference runtime 的 V0 completion gate 是：
+
+```bash
+go run ./cmd/agenix acceptance
+```
+
+这个命令会为 reference runtime 运行 canonical 本地 acceptance sweep。它覆盖三个
+canonical skill，并检查 manifest 校验、artifact build 与 inspect、artifact 执行、trace
+校验、verifier 重新运行、replay、本地 registry publish / pull，以及直接使用 registry
+reference 执行。
+
+本地完整 release verification 还应该运行：
+
+```bash
+go test -count=1 ./...
+go vet ./...
+go build ./cmd/agenix
+```
+
+这个 gate 有意限定在 V0 reference runtime。它不声称提供强 sandbox、远程执行器行为、
+registry trust、签名、OCI 分发或 provider-backed 远程执行。Provider-backed adapter
+smoke 路径仍然是 opt-in，并且不属于默认 V0 acceptance sweep。
+
+## 16. 未来方向
 
 - Agent compose
 - Memory federation

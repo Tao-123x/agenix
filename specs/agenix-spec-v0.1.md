@@ -143,8 +143,36 @@ verification.
 ## 14. Reference Demo
 
 - `repo.fix_test_failure`
+- `repo.analyze_test_failures`
+- `repo.apply_small_refactor`
 
-## 15. Future Directions
+## 15. V0 Acceptance Gate
+
+The reference runtime V0 completion gate is:
+
+```bash
+go run ./cmd/agenix acceptance
+```
+
+The command runs the canonical local acceptance sweep for the reference runtime.
+It covers all three canonical skills and checks manifest validation, artifact
+build and inspect, artifact execution, trace validation, verifier rerun, replay,
+local registry publish/pull, and direct registry-reference execution.
+
+Full local release verification should also run:
+
+```bash
+go test -count=1 ./...
+go vet ./...
+go build ./cmd/agenix
+```
+
+This gate is intentionally scoped to the V0 reference runtime. It is not a claim
+of strong sandboxing, remote executor behavior, registry trust, signatures, OCI
+distribution, or provider-backed remote execution. Provider-backed adapter smoke
+paths remain opt-in and outside the default V0 acceptance sweep.
+
+## 16. Future Directions
 
 - Agent compose
 - Memory federation

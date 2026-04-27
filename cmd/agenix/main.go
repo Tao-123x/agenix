@@ -22,6 +22,16 @@ func run(args []string) error {
 		return usage()
 	}
 	switch args[0] {
+	case "acceptance":
+		if len(args) != 1 {
+			return usage()
+		}
+		summary, err := agenix.RunV0AcceptanceSweep(agenix.AcceptanceOptions{})
+		if err != nil {
+			return err
+		}
+		fmt.Println(formatAcceptanceSummary(summary))
+		return nil
 	case "build":
 		if len(args) != 4 || args[2] != "-o" {
 			return usage()
@@ -134,7 +144,11 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+}
+
+func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
+	return fmt.Sprintf("status=%s skills=%d runs=%d", summary.Status, summary.SkillCount, summary.RunCount)
 }
 
 func formatRunResult(status, runID, tracePath string, changedFiles, verifierSummary []string) string {

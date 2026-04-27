@@ -217,6 +217,32 @@ go run ./cmd/agenix run repo.apply_small_refactor.agenix
 这个 skill 只允许写 `greeter.py`。成功运行时，它会报告这一个文件、执行测试，并运行一个
 verifier 来检查重构后的结构。
 
+运行 V0 release gate：
+
+```bash
+go run ./cmd/agenix acceptance
+```
+
+`agenix acceptance` 是 reference runtime 的 canonical V0 acceptance 命令。它会在本地
+对三个 canonical skill 运行 acceptance sweep：manifest 校验、可移植 capsule 的 build
+与 inspect、artifact 执行、trace 校验、verifier 重新运行、trace replay、本地 registry
+publish / pull，以及直接使用 registry reference 执行。
+
+在 cut 或 review V0 release 前，本地完整验证命令是：
+
+```bash
+go run ./cmd/agenix acceptance
+go test -count=1 ./...
+go vet ./...
+go build ./cmd/agenix
+```
+
+V0 acceptance 有意限定为本地 reference-runtime gate。它不声称提供强 sandbox、远程执行器
+语义、registry trust、签名、OCI 分发或 provider-backed 远程 adapter 覆盖。可选的
+`openai-analyze` smoke 路径仍然不属于默认 V0 acceptance sweep。
+
+参见 [V0 release checklist](docs/v0-release-checklist.zh-CN.md)。
+
 ## 路线图与完成定义（DoD）
 
 ### Phase 0：规范（DoD）
@@ -232,9 +258,9 @@ verifier 来检查重构后的结构。
 - 至少对 `fs.*` / `shell.*` / `git.*` 做跨 OS 检查
 
 ### Phase 2：CLI 与 Registry（DoD）
-- `agenix build/run/verify/replay/publish/pull`
+- `agenix build/run/verify/replay/validate/publish/pull/acceptance`
 - skill package 的 registry push/pull 闭环（至少本地 filesystem registry）
-- 用 benchmark 套件验证 portability invariants
+- 用 acceptance gate 在 canonical skills 上验证 portability invariants
 
 ## 参与贡献
 
