@@ -130,6 +130,19 @@ trace, reruns verification, and replays the trace summary. Pass `--json` when
 CI or another agent needs a stable machine-readable report; the report uses
 `kind: check_report` and can be validated with `agenix validate`.
 
+Create a writable repair skill from the failing-test template:
+
+```bash
+go run ./cmd/agenix init skill repo.demo_fix --template repo-fix-test-failure -o /tmp/repo.demo_fix
+python3 -m pytest -q /tmp/repo.demo_fix/fixture
+go run ./cmd/agenix check /tmp/repo.demo_fix --adapter repo-fix-test-failure-template --json > /tmp/fix-report.json
+go run ./cmd/agenix validate /tmp/fix-report.json
+```
+
+The pytest command should fail before `check`. The template adapter then fixes
+`fixture/mathlib.py` through the runtime `fs.write` tool, and the check report
+records the changed file after verifier pass.
+
 Run the canonical demo from the repository root:
 
 ```bash

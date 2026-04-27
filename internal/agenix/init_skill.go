@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-const PythonPytestTemplate = "python-pytest"
+const (
+	PythonPytestTemplate       = "python-pytest"
+	RepoFixTestFailureTemplate = "repo-fix-test-failure"
+)
 
 type InitSkillOptions struct {
 	Name      string
@@ -35,7 +38,8 @@ func InitSkill(options InitSkillOptions) (InitSkillResult, error) {
 	if template == "" {
 		template = PythonPytestTemplate
 	}
-	if template != PythonPytestTemplate {
+	files, err := skillTemplateFiles(name, template)
+	if err != nil {
 		return InitSkillResult{}, NewError(ErrInvalidInput, "unsupported skill template: "+template)
 	}
 	if strings.TrimSpace(options.OutputDir) == "" {
@@ -52,7 +56,7 @@ func InitSkill(options InitSkillOptions) (InitSkillResult, error) {
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return InitSkillResult{}, WrapError(ErrDriverError, "create skill directory", err)
 	}
-	for _, file := range pythonPytestSkillTemplate(name) {
+	for _, file := range files {
 		target, err := safeJoin(outputDir, file.RelPath)
 		if err != nil {
 			return InitSkillResult{}, err
@@ -113,6 +117,17 @@ func ensureWritableSkillTarget(outputDir string) error {
 		return NewError(ErrInvalidInput, "output directory is not empty")
 	}
 	return nil
+}
+
+func skillTemplateFiles(name, template string) ([]skillTemplateFile, error) {
+	switch template {
+	case PythonPytestTemplate:
+		return pythonPytestSkillTemplate(name), nil
+	case RepoFixTestFailureTemplate:
+		return repoFixTestFailureSkillTemplate(name), nil
+	default:
+		return nil, NewError(ErrInvalidInput, "unsupported skill template: "+template)
+	}
 }
 
 func pythonPytestSkillTemplate(name string) []skillTemplateFile {
@@ -202,5 +217,96 @@ func pythonPytestFixtureTest() string {
 
 def test_normalize_trims_and_lowercases():
     assert normalize(" Hello ") == "hello"
+`
+}
+
+func repoFixTestFailureSkillTemplate(name string) []skillTemplateFile {
+	return []skillTemplateFile{
+		{RelPath: "manifest.yaml", Content: repoFixTestFailureManifest(name)},
+		{RelPath: "README.md", Content: repoFixTestFailureREADME(name)},
+		{RelPath: filepath.ToSlash(filepath.Join("fixture", "mathlib.py")), Content: repoFixTestFailureSource()},
+		{RelPath: filepath.ToSlash(filepath.Join("fixture", "test_mathlib.py")), Content: repoFixTestFailureTest()},
+	}
+}
+
+func repoFixTestFailureManifest(name string) string {
+	return fmt.Sprintf(`apiVersion: agenix/v0.1
+kind: Skill
+name: %s
+version: 0.1.0
+description: Generated skill that fixes a failing pytest fixture.
+capabilities:
+  requires:
+    tool_calling: true
+    structured_output: true
+    max_context_tokens: 4000
+    reasoning_level: minimal
+tools:
+  - fs
+  - shell
+permissions:
+  network: false
+  filesystem:
+    read:
+      - ${repo_path}
+    write:
+      - ${repo_path}
+  shell:
+    allow:
+      - run: ["python3", "-m", "pytest", "-q"]
+inputs:
+  repo_path: fixture
+outputs:
+  required:
+    - patch_summary
+    - changed_files
+verifiers:
+  - type: command
+    name: run_tests
+    run: ["python3", "-m", "pytest", "-q"]
+    cwd: ${repo_path}
+    policy:
+      executable: python3
+      cwd: ${repo_path}
+      timeout_ms: 120000
+    success:
+      exit_code: 0
+  - type: schema
+    name: output_schema_check
+    schemaRef: outputs
+`, name)
+}
+
+func repoFixTestFailureREADME(name string) string {
+	return fmt.Sprintf(`# %s
+
+This skill was generated from the Agenix repo-fix-test-failure template.
+
+From the Agenix repository root:
+
+`+"```bash"+`
+python3 -m pytest -q /path/to/%s/fixture
+go run ./cmd/agenix check /path/to/%s --adapter repo-fix-test-failure-template
+go run ./cmd/agenix check /path/to/%s --adapter repo-fix-test-failure-template --json
+`+"```"+`
+
+The fixture starts with a failing test. The template adapter fixes the source
+file only through the runtime filesystem tool, then the verifier decides
+whether the patch is valid.
+`, name, name, name, name)
+}
+
+func repoFixTestFailureSource() string {
+	return `def add(a, b):
+    return a - b
+`
+}
+
+func repoFixTestFailureTest() string {
+	return `from mathlib import add
+
+
+def test_adds_numbers():
+    assert add(2, 3) == 5
 `
 }

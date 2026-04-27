@@ -214,6 +214,64 @@ func TestCLICheckJSONReportCanBeValidated(t *testing.T) {
 	}
 }
 
+func TestCLIInitRepoFixTestFailureTemplateCreatesWritableSkill(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "repo.demo_fix")
+	reportPath := filepath.Join(root, "check-report.json")
+
+	initOut, err := exec.Command("go", "run", ".", "init", "skill", "repo.demo_fix", "--template", "repo-fix-test-failure", "-o", skillDir).CombinedOutput()
+	if err != nil {
+		t.Fatalf("init skill failed: %v\n%s", err, initOut)
+	}
+	initText := string(initOut)
+	for _, want := range []string{"status=created", "skill=repo.demo_fix", "template=repo-fix-test-failure", "path=" + skillDir} {
+		if !strings.Contains(initText, want) {
+			t.Fatalf("init output missing %q: %s", want, initText)
+		}
+	}
+
+	pytestOut, err := exec.Command("python3", "-m", "pytest", "-q", filepath.Join(skillDir, "fixture")).CombinedOutput()
+	if err == nil {
+		t.Fatalf("generated fixture should start failing: %s", pytestOut)
+	}
+
+	checkOut, err := exec.Command("go", "run", ".", "check", skillDir, "--adapter", "repo-fix-test-failure-template", "--json").CombinedOutput()
+	if err != nil {
+		t.Fatalf("check generated skill failed: %v\n%s", err, checkOut)
+	}
+	if err := os.WriteFile(reportPath, checkOut, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var report struct {
+		Kind            string   `json:"kind"`
+		Status          string   `json:"status"`
+		Skill           string   `json:"skill"`
+		ChangedFiles    []string `json:"changed_files"`
+		VerifierSummary []string `json:"verifier_summary"`
+	}
+	if err := json.Unmarshal(checkOut, &report); err != nil {
+		t.Fatalf("check output is not JSON: %v\n%s", err, checkOut)
+	}
+	if report.Kind != "check_report" || report.Status != "passed" || report.Skill != "repo.demo_fix" {
+		t.Fatalf("unexpected report: %#v", report)
+	}
+	if len(report.ChangedFiles) != 1 || !strings.HasSuffix(filepath.ToSlash(report.ChangedFiles[0]), "/fixture/mathlib.py") {
+		t.Fatalf("unexpected changed files: %#v", report.ChangedFiles)
+	}
+	if got := strings.Join(report.VerifierSummary, ","); got != "run_tests:passed,output_schema_check:passed" {
+		t.Fatalf("verifier summary = %q", got)
+	}
+
+	validateOut, err := exec.Command("go", "run", ".", "validate", reportPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate check report failed: %v\n%s", err, validateOut)
+	}
+	if !strings.Contains(string(validateOut), "status=valid kind=check_report") {
+		t.Fatalf("unexpected validate output: %s", validateOut)
+	}
+}
+
 func TestCLIBuildAndInspect(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, "skill")

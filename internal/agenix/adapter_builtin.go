@@ -147,6 +147,26 @@ func (PythonPytestTemplateAdapter) Execute(manifest Manifest, tools *Tools) (map
 	}, nil
 }
 
+type RepoFixTestFailureTemplateAdapter struct{}
+
+func (RepoFixTestFailureTemplateAdapter) Metadata() AdapterMetadata {
+	return AdapterMetadata{
+		Name:         "repo-fix-test-failure-template",
+		ModelProfile: "repo-fix-test-failure-template",
+		Transport:    "local",
+		Capabilities: CapabilitySet{
+			ToolCalling:      true,
+			StructuredOutput: true,
+			MaxContextTokens: 4000,
+			ReasoningLevel:   "minimal",
+		},
+	}
+}
+
+func (RepoFixTestFailureTemplateAdapter) Execute(manifest Manifest, tools *Tools) (map[string]any, error) {
+	return executeFixTestFailure(manifest, tools)
+}
+
 func ResolveBuiltinAdapter(name string) (Adapter, error) {
 	switch name {
 	case "", "fake-scripted":
@@ -157,6 +177,8 @@ func ResolveBuiltinAdapter(name string) (Adapter, error) {
 		return OpenAIAnalyzeAdapter{}, nil
 	case "python-pytest-template":
 		return PythonPytestTemplateAdapter{}, nil
+	case "repo-fix-test-failure-template":
+		return RepoFixTestFailureTemplateAdapter{}, nil
 	default:
 		return nil, NewError(ErrUnsupportedAdapter, "unknown adapter: "+name)
 	}

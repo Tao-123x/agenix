@@ -3,6 +3,7 @@ package agenix
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -31,6 +32,41 @@ func TestInitSkillPythonPytestTemplateCreatesValidManifest(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(skillDir, "fixture", "test_skill.py")); err != nil {
 		t.Fatalf("fixture test missing: %v", err)
+	}
+}
+
+func TestInitSkillRepoFixTestFailureTemplateCreatesWritableManifest(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "repo.demo_fix")
+
+	result, err := InitSkill(InitSkillOptions{
+		Name:      "repo.demo_fix",
+		Template:  RepoFixTestFailureTemplate,
+		OutputDir: skillDir,
+	})
+	if err != nil {
+		t.Fatalf("InitSkill returned error: %v", err)
+	}
+	if result.Name != "repo.demo_fix" || result.Template != RepoFixTestFailureTemplate || result.Path != skillDir {
+		t.Fatalf("unexpected init result: %#v", result)
+	}
+
+	manifest, err := LoadManifest(filepath.Join(skillDir, "manifest.yaml"))
+	if err != nil {
+		t.Fatalf("generated manifest did not load: %v", err)
+	}
+	if manifest.Name != "repo.demo_fix" {
+		t.Fatalf("manifest name = %q", manifest.Name)
+	}
+	if len(manifest.Permissions.Filesystem.Write) != 1 {
+		t.Fatalf("write scopes = %#v", manifest.Permissions.Filesystem.Write)
+	}
+	source, err := os.ReadFile(filepath.Join(skillDir, "fixture", "mathlib.py"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(source), "return a - b") {
+		t.Fatalf("fixture should start broken: %s", source)
 	}
 }
 

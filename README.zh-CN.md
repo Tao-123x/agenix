@@ -127,6 +127,18 @@ go run ./cmd/agenix validate /tmp/report.json
 需要稳定的机器可读报告时，可以传 `--json`；报告使用 `kind: check_report`，
 并且可以用 `agenix validate` 校验。
 
+从失败测试模板创建一个可写修复 skill：
+
+```bash
+go run ./cmd/agenix init skill repo.demo_fix --template repo-fix-test-failure -o /tmp/repo.demo_fix
+python3 -m pytest -q /tmp/repo.demo_fix/fixture
+go run ./cmd/agenix check /tmp/repo.demo_fix --adapter repo-fix-test-failure-template --json > /tmp/fix-report.json
+go run ./cmd/agenix validate /tmp/fix-report.json
+```
+
+`pytest` 命令在 `check` 前应该失败。模板 adapter 随后会通过 runtime 的 `fs.write`
+工具修复 `fixture/mathlib.py`，并在 verifier 通过后把 changed file 写进 check report。
+
 在仓库根目录运行 canonical demo：
 
 ```bash
