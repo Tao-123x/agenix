@@ -38,7 +38,7 @@
 ## Verification
 
 ```bash
-go test ./internal/agenix -run TestV0AcceptanceSweepForCanonicalSkills -count=1
+go run ./cmd/agenix acceptance
 go test -count=1 ./...
 go vet ./...
 go build ./cmd/agenix

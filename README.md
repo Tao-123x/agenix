@@ -79,6 +79,7 @@ Core specs:
 - [Capabilities](specs/capability.md) / [Capabilities.zh-CN](specs/capability.zh-CN.md)
 - [Trace](specs/trace.md) / [Trace.zh-CN](specs/trace.zh-CN.md)
 - [Policy](specs/policy.md) / [Policy.zh-CN](specs/policy.zh-CN.md)
+- [v0.1.0 Release Notes](docs/releases/v0.1.0.md) / [中文](docs/releases/v0.1.0.zh-CN.md)
 
 Example docs:
 

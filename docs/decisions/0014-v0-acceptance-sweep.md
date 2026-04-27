@@ -16,10 +16,12 @@ human interpretation.
 
 ## Decision
 
-The Agenix reference runtime v0 is accepted through one dedicated integration
-test:
+The Agenix reference runtime v0 is accepted through one dedicated release gate:
 
-- `TestV0AcceptanceSweepForCanonicalSkills`
+- `go run ./cmd/agenix acceptance`
+
+The Go integration test `TestV0AcceptanceSweepForCanonicalSkills` exercises the
+same production acceptance path.
 
 That sweep covers all three canonical skills and exercises:
 

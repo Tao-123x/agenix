@@ -18,7 +18,7 @@ Reference runtime status:
 
 - The Agenix reference runtime v0 loop is complete and acceptance-tested.
 - The top-level acceptance command is:
-  `go test ./internal/agenix -run TestV0AcceptanceSweepForCanonicalSkills -count=1`
+  `go run ./cmd/agenix acceptance`
 
 Working runtime surface:
 
