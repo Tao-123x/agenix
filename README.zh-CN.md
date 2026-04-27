@@ -82,6 +82,10 @@ Agenix 定义了五层：
 - [v0.1.0 Release Notes](docs/releases/v0.1.0.md) / [中文](docs/releases/v0.1.0.zh-CN.md)
 - [v0.2.0 Plan](docs/releases/v0.2.0-plan.md) / [中文](docs/releases/v0.2.0-plan.zh-CN.md)
 
+教程：
+
+- [Write your first skill](docs/tutorials/write-your-first-skill.md) / [中文](docs/tutorials/write-your-first-skill.zh-CN.md)
+
 示例文档：
 
 - [repo.fix_test_failure README](examples/repo.fix_test_failure/README.md) / [中文](examples/repo.fix_test_failure/README.zh-CN.md)
