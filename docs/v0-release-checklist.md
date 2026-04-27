@@ -28,6 +28,8 @@ go vet ./...
 go build ./cmd/agenix
 ```
 
+GitHub Actions mirrors this gate in `.github/workflows/v0-release-gate.yml`.
+
 ## Acceptance Coverage
 
 The V0 acceptance command covers:

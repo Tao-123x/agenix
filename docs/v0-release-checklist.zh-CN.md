@@ -26,6 +26,8 @@ go vet ./...
 go build ./cmd/agenix
 ```
 
+GitHub Actions 会通过 `.github/workflows/v0-release-gate.yml` 运行同一组 gate。
+
 ## Acceptance 覆盖范围
 
 V0 acceptance 命令覆盖：
