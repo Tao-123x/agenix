@@ -110,6 +110,8 @@ sudo apt-get install -y golang-go python3 python3-pytest
 从 V0.2 authoring 模板创建一个可运行的 skill skeleton：
 
 ```bash
+go run ./cmd/agenix init templates
+go run ./cmd/agenix init templates --json
 go run ./cmd/agenix init skill repo.demo_skill --template python-pytest -o /tmp/repo.demo_skill
 go run ./cmd/agenix validate /tmp/repo.demo_skill/manifest.yaml
 go run ./cmd/agenix build /tmp/repo.demo_skill -o /tmp/repo.demo_skill.agenix

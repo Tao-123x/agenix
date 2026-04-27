@@ -24,6 +24,13 @@ type InitSkillResult struct {
 	Path     string
 }
 
+type SkillTemplateDescriptor struct {
+	Name        string `json:"name"`
+	Adapter     string `json:"adapter"`
+	Writes      bool   `json:"writes"`
+	Description string `json:"description"`
+}
+
 type skillTemplateFile struct {
 	RelPath string
 	Content string
@@ -69,6 +76,23 @@ func InitSkill(options InitSkillOptions) (InitSkillResult, error) {
 		}
 	}
 	return InitSkillResult{Name: name, Template: template, Path: outputDir}, nil
+}
+
+func ListSkillTemplates() []SkillTemplateDescriptor {
+	return []SkillTemplateDescriptor{
+		{
+			Name:        PythonPytestTemplate,
+			Adapter:     "python-pytest-template",
+			Writes:      false,
+			Description: "Minimal read-only pytest skill skeleton.",
+		},
+		{
+			Name:        RepoFixTestFailureTemplate,
+			Adapter:     "repo-fix-test-failure-template",
+			Writes:      true,
+			Description: "Writable failing-test repair skill skeleton.",
+		},
+	}
 }
 
 func validSkillName(name string) bool {

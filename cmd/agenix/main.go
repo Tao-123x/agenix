@@ -167,7 +167,7 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | init skill <name> --template <python-pytest|repo-fix-test-failure> -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] [--json] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | init templates [--json] | init skill <name> --template <python-pytest|repo-fix-test-failure> -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] [--json] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
 }
 
 func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
@@ -176,6 +176,14 @@ func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
 
 func formatInitSkillResult(result agenix.InitSkillResult) string {
 	return fmt.Sprintf("status=created skill=%s template=%s path=%s", result.Name, result.Template, result.Path)
+}
+
+func formatSkillTemplates(templates []agenix.SkillTemplateDescriptor) string {
+	lines := make([]string, 0, len(templates))
+	for _, template := range templates {
+		lines = append(lines, fmt.Sprintf("template=%s adapter=%s writes=%t description=%s", template.Name, template.Adapter, template.Writes, template.Description))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func formatCheckResult(result agenix.CheckResult) string {
@@ -356,6 +364,16 @@ func parseCheckArgs(args []string) (checkCommandOptions, error) {
 }
 
 func runInit(args []string) error {
+	if len(args) >= 1 && args[0] == "templates" {
+		if len(args) == 1 {
+			fmt.Println(formatSkillTemplates(agenix.ListSkillTemplates()))
+			return nil
+		}
+		if len(args) == 2 && args[1] == "--json" {
+			return printJSON(agenix.ListSkillTemplates())
+		}
+		return usage()
+	}
 	options, err := parseInitSkillArgs(args)
 	if err != nil {
 		return err

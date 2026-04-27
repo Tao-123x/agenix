@@ -111,6 +111,8 @@ toolchain before running the demo.
 Create a runnable skill skeleton from the V0.2 authoring template:
 
 ```bash
+go run ./cmd/agenix init templates
+go run ./cmd/agenix init templates --json
 go run ./cmd/agenix init skill repo.demo_skill --template python-pytest -o /tmp/repo.demo_skill
 go run ./cmd/agenix validate /tmp/repo.demo_skill/manifest.yaml
 go run ./cmd/agenix build /tmp/repo.demo_skill -o /tmp/repo.demo_skill.agenix

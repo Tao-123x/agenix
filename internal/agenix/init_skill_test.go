@@ -35,6 +35,19 @@ func TestInitSkillPythonPytestTemplateCreatesValidManifest(t *testing.T) {
 	}
 }
 
+func TestListSkillTemplatesReturnsStableCatalog(t *testing.T) {
+	templates := ListSkillTemplates()
+	if len(templates) != 2 {
+		t.Fatalf("template count = %d", len(templates))
+	}
+	if templates[0].Name != PythonPytestTemplate || templates[0].Adapter != "python-pytest-template" || templates[0].Writes {
+		t.Fatalf("unexpected first template: %#v", templates[0])
+	}
+	if templates[1].Name != RepoFixTestFailureTemplate || templates[1].Adapter != "repo-fix-test-failure-template" || !templates[1].Writes {
+		t.Fatalf("unexpected second template: %#v", templates[1])
+	}
+}
+
 func TestInitSkillRepoFixTestFailureTemplateCreatesWritableManifest(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, "repo.demo_fix")

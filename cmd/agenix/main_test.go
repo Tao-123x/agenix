@@ -69,6 +69,46 @@ func TestCLIAcceptanceRunsV0Sweep(t *testing.T) {
 	}
 }
 
+func TestCLIInitTemplatesListsBuiltins(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "init", "templates").CombinedOutput()
+	if err != nil {
+		t.Fatalf("init templates failed: %v\n%s", err, out)
+	}
+	text := string(out)
+	for _, want := range []string{
+		"template=python-pytest adapter=python-pytest-template writes=false",
+		"template=repo-fix-test-failure adapter=repo-fix-test-failure-template writes=true",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("init templates output missing %q: %s", want, text)
+		}
+	}
+}
+
+func TestCLIInitTemplatesPrintsJSON(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "init", "templates", "--json").CombinedOutput()
+	if err != nil {
+		t.Fatalf("init templates --json failed: %v\n%s", err, out)
+	}
+	var templates []struct {
+		Name    string `json:"name"`
+		Adapter string `json:"adapter"`
+		Writes  bool   `json:"writes"`
+	}
+	if err := json.Unmarshal(out, &templates); err != nil {
+		t.Fatalf("init templates output is not JSON: %v\n%s", err, out)
+	}
+	if len(templates) != 2 {
+		t.Fatalf("template count = %d, want 2: %#v", len(templates), templates)
+	}
+	if templates[0].Name != "python-pytest" || templates[0].Adapter != "python-pytest-template" || templates[0].Writes {
+		t.Fatalf("unexpected first template: %#v", templates[0])
+	}
+	if templates[1].Name != "repo-fix-test-failure" || templates[1].Adapter != "repo-fix-test-failure-template" || !templates[1].Writes {
+		t.Fatalf("unexpected second template: %#v", templates[1])
+	}
+}
+
 func TestCLIInitSkillCreatesRunnablePythonPytestSkill(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, "repo.demo_skill")
