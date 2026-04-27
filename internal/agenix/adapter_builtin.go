@@ -117,6 +117,36 @@ func (HeuristicAnalyzeTestFailuresAdapter) Execute(manifest Manifest, tools *Too
 	return executeAnalyzeTestFailures(manifest, tools)
 }
 
+type PythonPytestTemplateAdapter struct{}
+
+func (PythonPytestTemplateAdapter) Metadata() AdapterMetadata {
+	return AdapterMetadata{
+		Name:         "python-pytest-template",
+		ModelProfile: "python-pytest-template",
+		Transport:    "local",
+		Capabilities: CapabilitySet{
+			ToolCalling:      true,
+			StructuredOutput: true,
+			MaxContextTokens: 4000,
+			ReasoningLevel:   "minimal",
+		},
+	}
+}
+
+func (PythonPytestTemplateAdapter) Execute(manifest Manifest, tools *Tools) (map[string]any, error) {
+	repoPath := strings.TrimSpace(manifest.Inputs["repo_path"])
+	if repoPath == "" {
+		return nil, NewError(ErrInvalidInput, "python-pytest-template requires input repo_path")
+	}
+	if _, err := tools.FSList(repoPath); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"analysis_summary": "Generated python-pytest skill executed without code changes.",
+		"changed_files":    []string{},
+	}, nil
+}
+
 func ResolveBuiltinAdapter(name string) (Adapter, error) {
 	switch name {
 	case "", "fake-scripted":
@@ -125,6 +155,8 @@ func ResolveBuiltinAdapter(name string) (Adapter, error) {
 		return HeuristicAnalyzeTestFailuresAdapter{}, nil
 	case "openai-analyze":
 		return OpenAIAnalyzeAdapter{}, nil
+	case "python-pytest-template":
+		return PythonPytestTemplateAdapter{}, nil
 	default:
 		return nil, NewError(ErrUnsupportedAdapter, "unknown adapter: "+name)
 	}

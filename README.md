@@ -80,6 +80,7 @@ Core specs:
 - [Trace](specs/trace.md) / [Trace.zh-CN](specs/trace.zh-CN.md)
 - [Policy](specs/policy.md) / [Policy.zh-CN](specs/policy.zh-CN.md)
 - [v0.1.0 Release Notes](docs/releases/v0.1.0.md) / [中文](docs/releases/v0.1.0.zh-CN.md)
+- [v0.2.0 Plan](docs/releases/v0.2.0-plan.md) / [中文](docs/releases/v0.2.0-plan.zh-CN.md)
 
 Example docs:
 
@@ -106,6 +107,21 @@ sudo apt-get install -y golang-go python3 python3-pytest
 
 If your distro package provides Go older than 1.22, install a newer Go
 toolchain before running the demo.
+
+Create a runnable skill skeleton from the V0.2 authoring template:
+
+```bash
+go run ./cmd/agenix init skill repo.demo_skill --template python-pytest -o /tmp/repo.demo_skill
+go run ./cmd/agenix validate /tmp/repo.demo_skill/manifest.yaml
+go run ./cmd/agenix build /tmp/repo.demo_skill -o /tmp/repo.demo_skill.agenix
+go run ./cmd/agenix run /tmp/repo.demo_skill.agenix --adapter python-pytest-template
+```
+
+The generated skill includes a minimal pytest fixture, a policy-constrained
+manifest, command and schema verifiers, and a local deterministic template
+adapter. The adapter does not edit files; it proves the authoring loop by
+listing the fixture through `fs.list`, returning structured output, and letting
+the verifier decide success.
 
 Run the canonical demo from the repository root:
 

@@ -80,6 +80,7 @@ Agenix 定义了五层：
 - [Trace](specs/trace.md) / [Trace.zh-CN](specs/trace.zh-CN.md)
 - [Policy](specs/policy.md) / [Policy.zh-CN](specs/policy.zh-CN.md)
 - [v0.1.0 Release Notes](docs/releases/v0.1.0.md) / [中文](docs/releases/v0.1.0.zh-CN.md)
+- [v0.2.0 Plan](docs/releases/v0.2.0-plan.md) / [中文](docs/releases/v0.2.0-plan.zh-CN.md)
 
 示例文档：
 
@@ -105,6 +106,19 @@ sudo apt-get install -y golang-go python3 python3-pytest
 ```
 
 如果发行版软件源里的 Go 版本低于 1.22，请先安装更新的 Go toolchain。
+
+从 V0.2 authoring 模板创建一个可运行的 skill skeleton：
+
+```bash
+go run ./cmd/agenix init skill repo.demo_skill --template python-pytest -o /tmp/repo.demo_skill
+go run ./cmd/agenix validate /tmp/repo.demo_skill/manifest.yaml
+go run ./cmd/agenix build /tmp/repo.demo_skill -o /tmp/repo.demo_skill.agenix
+go run ./cmd/agenix run /tmp/repo.demo_skill.agenix --adapter python-pytest-template
+```
+
+生成的 skill 会包含一个最小 pytest fixture、受 policy 约束的 manifest、command
+和 schema verifier，以及一个本地确定性的模板 adapter。这个 adapter 不修改文件；它通过
+`fs.list` 读取 fixture 列表，返回结构化输出，并把最终成功与否交给 verifier 判断。
 
 在仓库根目录运行 canonical demo：
 

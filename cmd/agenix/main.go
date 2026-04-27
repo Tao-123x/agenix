@@ -42,6 +42,8 @@ func run(args []string) error {
 		}
 		fmt.Println(formatArtifactSummary(result))
 		return nil
+	case "init":
+		return runInit(args[1:])
 	case "inspect":
 		target, registryRoot, err := parseTargetWithOptionalRegistry(args[1:])
 		if err != nil {
@@ -144,11 +146,15 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | init skill <name> --template python-pytest -o <dir> | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
 }
 
 func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
 	return fmt.Sprintf("status=%s skills=%d runs=%d", summary.Status, summary.SkillCount, summary.RunCount)
+}
+
+func formatInitSkillResult(result agenix.InitSkillResult) string {
+	return fmt.Sprintf("status=created skill=%s template=%s path=%s", result.Name, result.Template, result.Path)
 }
 
 func formatRunResult(status, runID, tracePath string, changedFiles, verifierSummary []string) string {
@@ -280,6 +286,43 @@ func parseRunArgs(args []string) (string, string, string, error) {
 		}
 	}
 	return target, registryRoot, adapterName, nil
+}
+
+func runInit(args []string) error {
+	options, err := parseInitSkillArgs(args)
+	if err != nil {
+		return err
+	}
+	result, err := agenix.InitSkill(options)
+	if err != nil {
+		return err
+	}
+	fmt.Println(formatInitSkillResult(result))
+	return nil
+}
+
+func parseInitSkillArgs(args []string) (agenix.InitSkillOptions, error) {
+	if len(args) < 2 || args[0] != "skill" {
+		return agenix.InitSkillOptions{}, usage()
+	}
+	options := agenix.InitSkillOptions{Name: args[1], Template: agenix.PythonPytestTemplate}
+	for i := 2; i < len(args); i += 2 {
+		if i+1 >= len(args) {
+			return agenix.InitSkillOptions{}, usage()
+		}
+		switch args[i] {
+		case "--template":
+			options.Template = args[i+1]
+		case "-o":
+			options.OutputDir = args[i+1]
+		default:
+			return agenix.InitSkillOptions{}, usage()
+		}
+	}
+	if options.OutputDir == "" {
+		return agenix.InitSkillOptions{}, usage()
+	}
+	return options, nil
 }
 
 func runRegistry(args []string) error {

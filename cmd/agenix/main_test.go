@@ -68,6 +68,49 @@ func TestCLIAcceptanceRunsV0Sweep(t *testing.T) {
 	}
 }
 
+func TestCLIInitSkillCreatesRunnablePythonPytestSkill(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "repo.demo_skill")
+	artifact := filepath.Join(root, "repo.demo_skill.agenix")
+
+	initOut, err := exec.Command("go", "run", ".", "init", "skill", "repo.demo_skill", "--template", "python-pytest", "-o", skillDir).CombinedOutput()
+	if err != nil {
+		t.Fatalf("init skill failed: %v\n%s", err, initOut)
+	}
+	initText := string(initOut)
+	for _, want := range []string{"status=created", "skill=repo.demo_skill", "template=python-pytest", "path=" + skillDir} {
+		if !strings.Contains(initText, want) {
+			t.Fatalf("init output missing %q: %s", want, initText)
+		}
+	}
+
+	for _, rel := range []string{"manifest.yaml", "README.md", "fixture/skill.py", "fixture/test_skill.py"} {
+		if _, err := os.Stat(filepath.Join(skillDir, rel)); err != nil {
+			t.Fatalf("generated file %s missing: %v", rel, err)
+		}
+	}
+
+	validateOut, err := exec.Command("go", "run", ".", "validate", filepath.Join(skillDir, "manifest.yaml")).CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate generated manifest failed: %v\n%s", err, validateOut)
+	}
+
+	buildOut, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput()
+	if err != nil {
+		t.Fatalf("build generated skill failed: %v\n%s", err, buildOut)
+	}
+
+	runOut, err := exec.Command("go", "run", ".", "run", artifact, "--adapter", "python-pytest-template").CombinedOutput()
+	if err != nil {
+		t.Fatalf("run generated artifact failed: %v\n%s", err, runOut)
+	}
+	runText := string(runOut)
+	if !strings.Contains(runText, "status=passed") ||
+		!strings.Contains(runText, "verifiers=run_tests:passed,output_schema_check:passed") {
+		t.Fatalf("unexpected run output: %s", runText)
+	}
+}
+
 func TestCLIBuildAndInspect(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, "skill")
