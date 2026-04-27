@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -136,6 +137,47 @@ func TestCLICheckRunsGeneratedPythonPytestSkill(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("check output missing %q: %s", want, text)
 		}
+	}
+}
+
+func TestCLICheckPrintsJSONReport(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "repo.demo_skill")
+
+	initOut, err := exec.Command("go", "run", ".", "init", "skill", "repo.demo_skill", "--template", "python-pytest", "-o", skillDir).CombinedOutput()
+	if err != nil {
+		t.Fatalf("init skill failed: %v\n%s", err, initOut)
+	}
+
+	checkOut, err := exec.Command("go", "run", ".", "check", skillDir, "--adapter", "python-pytest-template", "--json").CombinedOutput()
+	if err != nil {
+		t.Fatalf("check generated skill failed: %v\n%s", err, checkOut)
+	}
+
+	var report struct {
+		Status          string   `json:"status"`
+		Skill           string   `json:"skill"`
+		Version         string   `json:"version"`
+		ArtifactPath    string   `json:"artifact_path"`
+		RunID           string   `json:"run_id"`
+		TracePath       string   `json:"trace_path"`
+		VerifierSummary []string `json:"verifier_summary"`
+		EventCount      int      `json:"event_count"`
+	}
+	if err := json.Unmarshal(checkOut, &report); err != nil {
+		t.Fatalf("check output is not JSON: %v\n%s", err, checkOut)
+	}
+	if report.Status != "passed" || report.Skill != "repo.demo_skill" || report.Version != "0.1.0" {
+		t.Fatalf("unexpected JSON report identity: %#v", report)
+	}
+	if report.ArtifactPath == "" || report.RunID == "" || report.TracePath == "" {
+		t.Fatalf("JSON report missing paths or run id: %#v", report)
+	}
+	if report.EventCount == 0 {
+		t.Fatalf("JSON report missing event count: %#v", report)
+	}
+	if got := strings.Join(report.VerifierSummary, ","); got != "run_tests:passed,output_schema_check:passed" {
+		t.Fatalf("verifier summary = %q", got)
 	}
 }
 

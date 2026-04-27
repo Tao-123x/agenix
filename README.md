@@ -116,6 +116,7 @@ go run ./cmd/agenix validate /tmp/repo.demo_skill/manifest.yaml
 go run ./cmd/agenix build /tmp/repo.demo_skill -o /tmp/repo.demo_skill.agenix
 go run ./cmd/agenix run /tmp/repo.demo_skill.agenix --adapter python-pytest-template
 go run ./cmd/agenix check /tmp/repo.demo_skill --adapter python-pytest-template
+go run ./cmd/agenix check /tmp/repo.demo_skill --adapter python-pytest-template --json
 ```
 
 The generated skill includes a minimal pytest fixture, a policy-constrained
@@ -124,7 +125,8 @@ adapter. The adapter does not edit files; it proves the authoring loop by
 listing the fixture through `fs.list`, returning structured output, and letting
 the verifier decide success. `agenix check` is the one-command authoring gate:
 it validates the manifest, builds a temporary artifact, runs it, validates the
-trace, reruns verification, and replays the trace summary.
+trace, reruns verification, and replays the trace summary. Pass `--json` when
+CI or another agent needs a stable machine-readable report.
 
 Run the canonical demo from the repository root:
 

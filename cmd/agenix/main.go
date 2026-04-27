@@ -45,20 +45,23 @@ func run(args []string) error {
 	case "init":
 		return runInit(args[1:])
 	case "check":
-		target, registryRoot, adapterName, err := parseRunArgs(args[1:])
+		checkOptions, err := parseCheckArgs(args[1:])
 		if err != nil {
 			return err
 		}
-		adapter, err := agenix.ResolveBuiltinAdapter(adapterName)
+		adapter, err := agenix.ResolveBuiltinAdapter(checkOptions.AdapterName)
 		if err != nil {
 			return err
 		}
-		result, err := agenix.CheckSkill(agenix.CheckOptions{Target: target, RegistryRoot: registryRoot, Adapter: adapter})
+		result, err := agenix.CheckSkill(agenix.CheckOptions{Target: checkOptions.Target, RegistryRoot: checkOptions.RegistryRoot, Adapter: adapter})
 		if err != nil {
 			if result.TracePath != "" {
 				fmt.Printf("status=failed skill=%s artifact=%s run_id=%s trace=%s\n", result.Skill, result.ArtifactPath, result.RunID, result.TracePath)
 			}
 			return err
+		}
+		if checkOptions.JSON {
+			return printJSON(result)
 		}
 		fmt.Println(formatCheckResult(result))
 		return nil
@@ -164,7 +167,7 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | init skill <name> --template python-pytest -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | init skill <name> --template python-pytest -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] [--json] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
 }
 
 func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
@@ -230,6 +233,12 @@ func mustJSON(value interface{}) string {
 		return `"<unserializable>"`
 	}
 	return string(raw)
+}
+
+func printJSON(value interface{}) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }
 
 func replayErrorClass(value interface{}) string {
@@ -308,6 +317,42 @@ func parseRunArgs(args []string) (string, string, string, error) {
 		}
 	}
 	return target, registryRoot, adapterName, nil
+}
+
+type checkCommandOptions struct {
+	Target       string
+	RegistryRoot string
+	AdapterName  string
+	JSON         bool
+}
+
+func parseCheckArgs(args []string) (checkCommandOptions, error) {
+	if len(args) < 1 {
+		return checkCommandOptions{}, usage()
+	}
+	options := checkCommandOptions{Target: args[0]}
+	for i := 1; i < len(args); {
+		switch args[i] {
+		case "--json":
+			options.JSON = true
+			i++
+		case "--registry":
+			if i+1 >= len(args) {
+				return checkCommandOptions{}, usage()
+			}
+			options.RegistryRoot = args[i+1]
+			i += 2
+		case "--adapter":
+			if i+1 >= len(args) {
+				return checkCommandOptions{}, usage()
+			}
+			options.AdapterName = args[i+1]
+			i += 2
+		default:
+			return checkCommandOptions{}, usage()
+		}
+	}
+	return options, nil
 }
 
 func runInit(args []string) error {
