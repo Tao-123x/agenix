@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "required": [
+    "kind",
+    "status",
+    "skill",
+    "version",
+    "artifact_path",
+    "run_id",
+    "trace_path",
+    "changed_files",
+    "verifier_summary",
+    "event_count"
+  ],
+  "properties": {
+    "kind": { "type": "string", "enum": ["check_report"] },
+    "status": { "type": "string" },
+    "skill": { "type": "string" },
+    "version": { "type": "string" },
+    "artifact_path": { "type": "string" },
+    "run_id": { "type": "string" },
+    "trace_path": { "type": "string" },
+    "changed_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "verifier_summary": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "event_count": { "type": "integer" }
+  }
+}

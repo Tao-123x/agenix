@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	schemaManifest = "manifest.schema.json"
-	schemaTrace    = "trace.schema.json"
+	schemaManifest    = "manifest.schema.json"
+	schemaTrace       = "trace.schema.json"
+	schemaCheckReport = "check-report.schema.json"
 )
 
 type jsonSchema struct {
@@ -55,6 +56,17 @@ func ValidateTarget(path string) (string, string, error) {
 	}
 	trimmed := strings.TrimSpace(string(raw))
 	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+		var doc map[string]any
+		if err := json.Unmarshal(raw, &doc); err == nil && looksLikeCheckReport(doc) {
+			if err := ValidateSchemaDocument(schemaCheckReport, doc); err != nil {
+				return "", "", err
+			}
+			schemaPath, err := SchemaPath(schemaCheckReport)
+			if err != nil {
+				return "", "", err
+			}
+			return "check_report", schemaPath, nil
+		}
 		trace, err := ReadTrace(path)
 		if err != nil {
 			return "", "", err
@@ -80,6 +92,15 @@ func ValidateTarget(path string) (string, string, error) {
 		return "", "", err
 	}
 	return "manifest", schemaPath, nil
+}
+
+func looksLikeCheckReport(doc map[string]any) bool {
+	for _, key := range []string{"artifact_path", "changed_files", "verifier_summary", "event_count"} {
+		if _, ok := doc[key]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func SchemaPath(schemaName string) (string, error) {

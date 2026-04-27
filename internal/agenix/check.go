@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const CheckReportKind = "check_report"
+
 type CheckOptions struct {
 	Target       string
 	RegistryRoot string
@@ -14,6 +16,7 @@ type CheckOptions struct {
 }
 
 type CheckResult struct {
+	Kind            string   `json:"kind"`
 	Status          string   `json:"status"`
 	Skill           string   `json:"skill"`
 	Version         string   `json:"version"`
@@ -26,23 +29,21 @@ type CheckResult struct {
 }
 
 func CheckSkill(options CheckOptions) (CheckResult, error) {
+	result := CheckResult{Kind: CheckReportKind, Status: "failed"}
 	if strings.TrimSpace(options.Target) == "" {
-		return CheckResult{Status: "failed"}, NewError(ErrInvalidInput, "check requires target")
+		return result, NewError(ErrInvalidInput, "check requires target")
 	}
 	target, err := ResolveRegistryReference(options.Target, options.RegistryRoot)
 	if err != nil {
-		return CheckResult{Status: "failed"}, err
+		return result, err
 	}
 	artifactPath, skill, version, err := checkArtifactTarget(target, options.WorkDir)
 	if err != nil {
-		return CheckResult{Status: "failed"}, err
+		return result, err
 	}
-	result := CheckResult{
-		Status:       "failed",
-		Skill:        skill,
-		Version:      version,
-		ArtifactPath: artifactPath,
-	}
+	result.Skill = skill
+	result.Version = version
+	result.ArtifactPath = artifactPath
 
 	runResult, err := Run(RunOptions{ManifestPath: artifactPath, Adapter: options.Adapter})
 	result.RunID = runResult.RunID

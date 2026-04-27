@@ -155,6 +155,7 @@ func TestCLICheckPrintsJSONReport(t *testing.T) {
 	}
 
 	var report struct {
+		Kind            string   `json:"kind"`
 		Status          string   `json:"status"`
 		Skill           string   `json:"skill"`
 		Version         string   `json:"version"`
@@ -167,6 +168,9 @@ func TestCLICheckPrintsJSONReport(t *testing.T) {
 	if err := json.Unmarshal(checkOut, &report); err != nil {
 		t.Fatalf("check output is not JSON: %v\n%s", err, checkOut)
 	}
+	if report.Kind != "check_report" {
+		t.Fatalf("report kind = %q", report.Kind)
+	}
 	if report.Status != "passed" || report.Skill != "repo.demo_skill" || report.Version != "0.1.0" {
 		t.Fatalf("unexpected JSON report identity: %#v", report)
 	}
@@ -178,6 +182,35 @@ func TestCLICheckPrintsJSONReport(t *testing.T) {
 	}
 	if got := strings.Join(report.VerifierSummary, ","); got != "run_tests:passed,output_schema_check:passed" {
 		t.Fatalf("verifier summary = %q", got)
+	}
+}
+
+func TestCLICheckJSONReportCanBeValidated(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "repo.demo_skill")
+	reportPath := filepath.Join(root, "check-report.json")
+
+	initOut, err := exec.Command("go", "run", ".", "init", "skill", "repo.demo_skill", "--template", "python-pytest", "-o", skillDir).CombinedOutput()
+	if err != nil {
+		t.Fatalf("init skill failed: %v\n%s", err, initOut)
+	}
+
+	checkOut, err := exec.Command("go", "run", ".", "check", skillDir, "--adapter", "python-pytest-template", "--json").CombinedOutput()
+	if err != nil {
+		t.Fatalf("check generated skill failed: %v\n%s", err, checkOut)
+	}
+	if err := os.WriteFile(reportPath, checkOut, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	validateOut, err := exec.Command("go", "run", ".", "validate", reportPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate check report failed: %v\n%s", err, validateOut)
+	}
+	text := string(validateOut)
+	if !strings.Contains(text, "status=valid kind=check_report") ||
+		!strings.Contains(text, "check-report.schema.json") {
+		t.Fatalf("unexpected validate output: %s", text)
 	}
 }
 

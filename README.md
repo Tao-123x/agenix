@@ -116,7 +116,8 @@ go run ./cmd/agenix validate /tmp/repo.demo_skill/manifest.yaml
 go run ./cmd/agenix build /tmp/repo.demo_skill -o /tmp/repo.demo_skill.agenix
 go run ./cmd/agenix run /tmp/repo.demo_skill.agenix --adapter python-pytest-template
 go run ./cmd/agenix check /tmp/repo.demo_skill --adapter python-pytest-template
-go run ./cmd/agenix check /tmp/repo.demo_skill --adapter python-pytest-template --json
+go run ./cmd/agenix check /tmp/repo.demo_skill --adapter python-pytest-template --json > /tmp/report.json
+go run ./cmd/agenix validate /tmp/report.json
 ```
 
 The generated skill includes a minimal pytest fixture, a policy-constrained
@@ -126,7 +127,8 @@ listing the fixture through `fs.list`, returning structured output, and letting
 the verifier decide success. `agenix check` is the one-command authoring gate:
 it validates the manifest, builds a temporary artifact, runs it, validates the
 trace, reruns verification, and replays the trace summary. Pass `--json` when
-CI or another agent needs a stable machine-readable report.
+CI or another agent needs a stable machine-readable report; the report uses
+`kind: check_report` and can be validated with `agenix validate`.
 
 Run the canonical demo from the repository root:
 
@@ -173,9 +175,10 @@ Published schema files live in:
 
 - `specs/manifest.schema.json`
 - `specs/trace.schema.json`
+- `specs/check-report.schema.json`
 
-Use `agenix validate <path>` to check a manifest or trace against the published
-schema-backed contract.
+Use `agenix validate <path>` to check a manifest, trace, or check report
+against the published schema-backed contract.
 
 Publish a capsule into the local registry and pull it back out:
 
