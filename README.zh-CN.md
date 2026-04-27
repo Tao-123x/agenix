@@ -114,11 +114,14 @@ go run ./cmd/agenix init skill repo.demo_skill --template python-pytest -o /tmp/
 go run ./cmd/agenix validate /tmp/repo.demo_skill/manifest.yaml
 go run ./cmd/agenix build /tmp/repo.demo_skill -o /tmp/repo.demo_skill.agenix
 go run ./cmd/agenix run /tmp/repo.demo_skill.agenix --adapter python-pytest-template
+go run ./cmd/agenix check /tmp/repo.demo_skill --adapter python-pytest-template
 ```
 
 生成的 skill 会包含一个最小 pytest fixture、受 policy 约束的 manifest、command
 和 schema verifier，以及一个本地确定性的模板 adapter。这个 adapter 不修改文件；它通过
 `fs.list` 读取 fixture 列表，返回结构化输出，并把最终成功与否交给 verifier 判断。
+`agenix check` 是一条命令的 authoring gate：它会校验 manifest、构建临时 artifact、
+运行 artifact、校验 trace、重跑 verifier，并回放 trace summary。
 
 在仓库根目录运行 canonical demo：
 

@@ -111,6 +111,34 @@ func TestCLIInitSkillCreatesRunnablePythonPytestSkill(t *testing.T) {
 	}
 }
 
+func TestCLICheckRunsGeneratedPythonPytestSkill(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "repo.demo_skill")
+
+	initOut, err := exec.Command("go", "run", ".", "init", "skill", "repo.demo_skill", "--template", "python-pytest", "-o", skillDir).CombinedOutput()
+	if err != nil {
+		t.Fatalf("init skill failed: %v\n%s", err, initOut)
+	}
+
+	checkOut, err := exec.Command("go", "run", ".", "check", skillDir, "--adapter", "python-pytest-template").CombinedOutput()
+	if err != nil {
+		t.Fatalf("check generated skill failed: %v\n%s", err, checkOut)
+	}
+	text := string(checkOut)
+	for _, want := range []string{
+		"status=passed",
+		"skill=repo.demo_skill",
+		"artifact=",
+		"trace=",
+		"verifiers=run_tests:passed,output_schema_check:passed",
+		"events=",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("check output missing %q: %s", want, text)
+		}
+	}
+}
+
 func TestCLIBuildAndInspect(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, "skill")

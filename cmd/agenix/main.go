@@ -44,6 +44,24 @@ func run(args []string) error {
 		return nil
 	case "init":
 		return runInit(args[1:])
+	case "check":
+		target, registryRoot, adapterName, err := parseRunArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		adapter, err := agenix.ResolveBuiltinAdapter(adapterName)
+		if err != nil {
+			return err
+		}
+		result, err := agenix.CheckSkill(agenix.CheckOptions{Target: target, RegistryRoot: registryRoot, Adapter: adapter})
+		if err != nil {
+			if result.TracePath != "" {
+				fmt.Printf("status=failed skill=%s artifact=%s run_id=%s trace=%s\n", result.Skill, result.ArtifactPath, result.RunID, result.TracePath)
+			}
+			return err
+		}
+		fmt.Println(formatCheckResult(result))
+		return nil
 	case "inspect":
 		target, registryRoot, err := parseTargetWithOptionalRegistry(args[1:])
 		if err != nil {
@@ -146,7 +164,7 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | init skill <name> --template python-pytest -o <dir> | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance | init skill <name> --template python-pytest -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
 }
 
 func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
@@ -155,6 +173,10 @@ func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
 
 func formatInitSkillResult(result agenix.InitSkillResult) string {
 	return fmt.Sprintf("status=created skill=%s template=%s path=%s", result.Name, result.Template, result.Path)
+}
+
+func formatCheckResult(result agenix.CheckResult) string {
+	return fmt.Sprintf("status=%s skill=%s version=%s artifact=%s run_id=%s trace=%s changed_files=%s verifiers=%s events=%d", result.Status, result.Skill, result.Version, result.ArtifactPath, result.RunID, result.TracePath, strings.Join(result.ChangedFiles, ","), strings.Join(result.VerifierSummary, ","), result.EventCount)
 }
 
 func formatRunResult(status, runID, tracePath string, changedFiles, verifierSummary []string) string {

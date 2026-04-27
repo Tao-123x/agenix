@@ -115,13 +115,16 @@ go run ./cmd/agenix init skill repo.demo_skill --template python-pytest -o /tmp/
 go run ./cmd/agenix validate /tmp/repo.demo_skill/manifest.yaml
 go run ./cmd/agenix build /tmp/repo.demo_skill -o /tmp/repo.demo_skill.agenix
 go run ./cmd/agenix run /tmp/repo.demo_skill.agenix --adapter python-pytest-template
+go run ./cmd/agenix check /tmp/repo.demo_skill --adapter python-pytest-template
 ```
 
 The generated skill includes a minimal pytest fixture, a policy-constrained
 manifest, command and schema verifiers, and a local deterministic template
 adapter. The adapter does not edit files; it proves the authoring loop by
 listing the fixture through `fs.list`, returning structured output, and letting
-the verifier decide success.
+the verifier decide success. `agenix check` is the one-command authoring gate:
+it validates the manifest, builds a temporary artifact, runs it, validates the
+trace, reruns verification, and replays the trace summary.
 
 Run the canonical demo from the repository root:
 
