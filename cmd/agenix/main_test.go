@@ -215,6 +215,29 @@ func TestCLIAdaptersCompatiblePrintsJSON(t *testing.T) {
 	}
 }
 
+func TestCLIAdaptersCompatibilityReportCanBeValidated(t *testing.T) {
+	root := t.TempDir()
+	reportPath := filepath.Join(root, "adapter-compatibility-report.json")
+
+	out, err := exec.Command("go", "run", ".", "adapters", "compatible", filepath.Join("..", "..", "examples", "repo.analyze_test_failures.remote", "manifest.yaml"), "--json").CombinedOutput()
+	if err != nil {
+		t.Fatalf("adapters compatible --json failed: %v\n%s", err, out)
+	}
+	if err := os.WriteFile(reportPath, out, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	validateOut, err := exec.Command("go", "run", ".", "validate", reportPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate adapter compatibility report failed: %v\n%s", err, validateOut)
+	}
+	text := string(validateOut)
+	if !strings.Contains(text, "status=valid kind=adapter_compatibility_report") ||
+		!strings.Contains(text, "adapter-compatibility-report.schema.json") {
+		t.Fatalf("unexpected validate output: %s", text)
+	}
+}
+
 func TestCLIAdaptersCompatibleAcceptsRegistryReference(t *testing.T) {
 	root := t.TempDir()
 	skillDir := filepath.Join(root, "repo.demo_fix")

@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	schemaManifest    = "manifest.schema.json"
-	schemaTrace       = "trace.schema.json"
-	schemaCheckReport = "check-report.schema.json"
+	schemaManifest                   = "manifest.schema.json"
+	schemaTrace                      = "trace.schema.json"
+	schemaCheckReport                = "check-report.schema.json"
+	schemaAdapterCompatibilityReport = "adapter-compatibility-report.schema.json"
 )
 
 type jsonSchema struct {
@@ -67,6 +68,16 @@ func ValidateTarget(path string) (string, string, error) {
 			}
 			return "check_report", schemaPath, nil
 		}
+		if err := json.Unmarshal(raw, &doc); err == nil && looksLikeAdapterCompatibilityReport(doc) {
+			if err := ValidateSchemaDocument(schemaAdapterCompatibilityReport, doc); err != nil {
+				return "", "", err
+			}
+			schemaPath, err := SchemaPath(schemaAdapterCompatibilityReport)
+			if err != nil {
+				return "", "", err
+			}
+			return "adapter_compatibility_report", schemaPath, nil
+		}
 		trace, err := ReadTrace(path)
 		if err != nil {
 			return "", "", err
@@ -101,6 +112,15 @@ func looksLikeCheckReport(doc map[string]any) bool {
 		}
 	}
 	return false
+}
+
+func looksLikeAdapterCompatibilityReport(doc map[string]any) bool {
+	if kind, ok := doc["kind"].(string); ok && kind == AdapterCompatibilityReportKind {
+		return true
+	}
+	_, hasAdapters := doc["adapters"]
+	_, hasTarget := doc["target"]
+	return hasAdapters && hasTarget
 }
 
 func SchemaPath(schemaName string) (string, error) {

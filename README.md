@@ -160,7 +160,8 @@ Discover builtin adapters and preflight compatibility before running a skill:
 go run ./cmd/agenix adapters
 go run ./cmd/agenix adapters --json
 go run ./cmd/agenix adapters compatible examples/repo.fix_test_failure/manifest.yaml
-go run ./cmd/agenix adapters compatible examples/repo.analyze_test_failures.remote/manifest.yaml --json
+go run ./cmd/agenix adapters compatible examples/repo.analyze_test_failures.remote/manifest.yaml --json > /tmp/adapter-compatibility.json
+go run ./cmd/agenix validate /tmp/adapter-compatibility.json
 ```
 
 Compatibility preflight is metadata-only. It checks adapter skill support,
@@ -213,9 +214,10 @@ Published schema files live in:
 - `specs/manifest.schema.json`
 - `specs/trace.schema.json`
 - `specs/check-report.schema.json`
+- `specs/adapter-compatibility-report.schema.json`
 
-Use `agenix validate <path>` to check a manifest, trace, or check report
-against the published schema-backed contract.
+Use `agenix validate <path>` to check a manifest, trace, check report, or
+adapter compatibility report against the published schema-backed contract.
 
 Publish a capsule into the local registry and pull it back out:
 

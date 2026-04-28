@@ -1,0 +1,58 @@
+{
+  "type": "object",
+  "required": [
+    "kind",
+    "target",
+    "skill",
+    "version",
+    "adapters"
+  ],
+  "properties": {
+    "kind": { "type": "string", "enum": ["adapter_compatibility_report"] },
+    "target": { "type": "string" },
+    "skill": { "type": "string" },
+    "version": { "type": "string" },
+    "adapters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "model_profile",
+          "transport",
+          "capabilities",
+          "compatible"
+        ],
+        "properties": {
+          "name": { "type": "string" },
+          "model_profile": { "type": "string" },
+          "provider": { "type": "string" },
+          "transport": { "type": "string", "enum": ["local", "remote"] },
+          "supported_skills": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "capabilities": {
+            "type": "object",
+            "required": [
+              "tool_calling",
+              "structured_output",
+              "max_context_tokens",
+              "reasoning_level"
+            ],
+            "properties": {
+              "tool_calling": { "type": "boolean" },
+              "structured_output": { "type": "boolean" },
+              "max_context_tokens": { "type": "integer" },
+              "reasoning_level": { "type": "string" }
+            }
+          },
+          "compatible": { "type": "boolean" },
+          "error_class": { "type": "string" },
+          "error_message": { "type": "string" }
+        }
+      }
+    }
+  }
+}
