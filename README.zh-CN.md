@@ -311,6 +311,10 @@ go vet ./...
 go build ./cmd/agenix
 ```
 
+GitHub 的 `v0-release-gate` workflow 会在 `ubuntu-latest`、`macos-latest` 和
+`windows-latest` 上运行同一套离线 gate。这个 matrix 是跨 OS 可移植性的 release
+证据入口。
+
 V0 acceptance 有意限定为本地 reference-runtime gate。它不声称提供强 sandbox、远程执行器
 语义、registry trust、签名、OCI 分发或 provider-backed 远程 adapter 覆盖。可选的
 `openai-analyze` live smoke 路径仍然不属于默认离线 acceptance sweep。

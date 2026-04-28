@@ -27,3 +27,24 @@ func TestV0ReleaseGateWorkflowRunsCanonicalVerification(t *testing.T) {
 		}
 	}
 }
+
+func TestV0ReleaseGateWorkflowRunsOnAllSupportedHosts(t *testing.T) {
+	path := filepath.Join("..", "..", ".github", "workflows", "v0-release-gate.yml")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read v0 release gate workflow: %v", err)
+	}
+	text := string(raw)
+	for _, snippet := range []string{
+		"strategy:",
+		"fail-fast: false",
+		"runs-on: ${{ matrix.os }}",
+		"ubuntu-latest",
+		"macos-latest",
+		"windows-latest",
+	} {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("workflow missing cross-OS matrix snippet %q:\n%s", snippet, text)
+		}
+	}
+}

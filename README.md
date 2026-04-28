@@ -339,6 +339,10 @@ go vet ./...
 go build ./cmd/agenix
 ```
 
+The GitHub `v0-release-gate` workflow runs the same offline gates on
+`ubuntu-latest`, `macos-latest`, and `windows-latest`. That matrix is the release
+evidence path for cross-OS portability.
+
 V0 acceptance is intentionally a local reference-runtime gate. It does not claim
 a strong sandbox, remote executor semantics, registry trust, signatures, OCI
 distribution, or provider-backed remote adapter coverage. The opt-in
