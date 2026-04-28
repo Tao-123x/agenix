@@ -54,7 +54,7 @@ func TestUsageMentionsAcceptanceCommand(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected usage error")
 	}
-	if !strings.Contains(err.Error(), "acceptance [--v0.2|--v0.3]") {
+	if !strings.Contains(err.Error(), "acceptance [--v0.2|--v0.3 [--provider-smoke]]") {
 		t.Fatalf("usage missing acceptance command: %v", err)
 	}
 }
@@ -89,6 +89,19 @@ func TestCLIAcceptanceRunsV03AdapterReadinessSweep(t *testing.T) {
 	text := strings.TrimSpace(string(out))
 	if text != "status=passed release=v0.3 adapters=5 compatibility_reports=3 schemas=3 provider_smoke=skipped_offline" {
 		t.Fatalf("unexpected v0.3 acceptance output: %s", text)
+	}
+}
+
+func TestCLIAcceptanceV03ProviderSmokeSkipsWithoutCredentials(t *testing.T) {
+	cmd := exec.Command("go", "run", ".", "acceptance", "--v0.3", "--provider-smoke")
+	cmd.Env = append(os.Environ(), "OPENAI_API_KEY=", "AGENIX_OPENAI_BASE_URL=")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("v0.3 provider smoke acceptance failed: %v\n%s", err, out)
+	}
+	text := strings.TrimSpace(string(out))
+	if text != "status=passed release=v0.3 adapters=5 compatibility_reports=3 schemas=3 provider_smoke=skipped_no_credentials" {
+		t.Fatalf("unexpected v0.3 provider smoke output: %s", text)
 	}
 }
 

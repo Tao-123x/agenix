@@ -260,9 +260,16 @@ go run ./cmd/agenix run repo.analyze_test_failures.agenix
 `--adapter heuristic-analyze` 路径使用单独的只读 builtin adapter，而不是默认的 fake scripted
 adapter，但仍然走同一套 runtime policy、trace、verifier、replay 和 artifact 流程。
 
-如果你运行的是可选的 provider-backed `--adapter openai-analyze` 路径，失败时仍然会
-报告 `DriverError`。Provider-backed OpenAI 请求默认 30 秒超时，响应体上限默认 1 MiB；
-本地 smoke 运行时可以通过 `AGENIX_OPENAI_TIMEOUT_MS` 或
+运行 opt-in remote smoke：
+
+```bash
+go run ./cmd/agenix acceptance --v0.3 --provider-smoke
+```
+
+这条路径需要显式执行，并且需要 `OPENAI_API_KEY`。没有凭据时，它会记录
+`provider_smoke=skipped_no_credentials`；有凭据时，它会运行只读的 `openai-analyze`
+adapter，并输出 provider smoke trace path。Provider-backed OpenAI 请求默认 30 秒超时，
+响应体上限默认 1 MiB；本地 smoke 运行时可以通过 `AGENIX_OPENAI_TIMEOUT_MS` 或
 `AGENIX_OPENAI_MAX_RESPONSE_BYTES` 覆盖。当上游响应里带有状态码和消息时，Agenix
 会保留这些信息；对于 429 响应，还可能附带 retry-after 提示。超出响应体上限的 provider
 响应会报告为 `DriverError`；Provider HTTP 超时会单独报告为 `Timeout`。
@@ -299,6 +306,9 @@ JSON，并证明失败报告仍然带有结构化 trace 证据。
 adapter catalog，分别校验 manifest、artifact 和 registry-reference 目标的
 compatibility report，并在默认 gate 中把 provider-backed smoke 记录为
 `skipped_offline`。
+
+需要 release record 明确包含 provider smoke 结果时，运行
+`agenix acceptance --v0.3 --provider-smoke`。
 
 在 cut 或 review release 前，本地完整验证命令是：
 

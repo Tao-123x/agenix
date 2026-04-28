@@ -8,8 +8,9 @@ import (
 )
 
 type AcceptanceOptions struct {
-	RootDir string
-	WorkDir string
+	RootDir       string
+	WorkDir       string
+	ProviderSmoke bool
 }
 
 type AcceptanceSummary struct {
@@ -23,6 +24,7 @@ type AcceptanceSummary struct {
 	CompatibilityReportCount int
 	SchemaCount              int
 	ProviderSmokeStatus      string
+	ProviderSmokeTracePath   string
 }
 
 type acceptanceSkill struct {
@@ -215,6 +217,15 @@ func RunV03AcceptanceSweep(options AcceptanceOptions) (AcceptanceSummary, error)
 			return summary, err
 		}
 		summary.SchemaCount++
+	}
+	if options.ProviderSmoke {
+		status, tracePath, err := runV03ProviderSmoke(rootDir, filepath.Join(v03WorkDir, "provider-smoke"))
+		summary.ProviderSmokeStatus = status
+		summary.ProviderSmokeTracePath = tracePath
+		if err != nil {
+			summary.Status = "failed"
+			return summary, err
+		}
 	}
 	return summary, nil
 }
@@ -468,6 +479,32 @@ func writeAndValidateCheckReport(result CheckResult, path string) error {
 		return NewError(ErrVerificationFailed, fmt.Sprintf("validate check report returned kind %q", kind))
 	}
 	return nil
+}
+
+func runV03ProviderSmoke(rootDir, workDir string) (string, string, error) {
+	if os.Getenv("OPENAI_API_KEY") == "" {
+		return "skipped_no_credentials", "", nil
+	}
+	result, err := Run(RunOptions{
+		ManifestPath: filepath.Join(rootDir, "examples", "repo.analyze_test_failures.remote", "manifest.yaml"),
+		RunDir:       workDir,
+		Adapter:      OpenAIAnalyzeAdapter{},
+	})
+	if err != nil {
+		return "failed", result.TracePath, WrapError(ErrorClass(err), "run v0.3 provider smoke", err)
+	}
+	if result.Status != "passed" {
+		return "failed", result.TracePath, NewError(ErrVerificationFailed, fmt.Sprintf("v0.3 provider smoke status = %q", result.Status))
+	}
+	if result.TracePath == "" {
+		return "failed", "", NewError(ErrDriverError, "v0.3 provider smoke did not write trace")
+	}
+	if kind, _, err := ValidateTarget(result.TracePath); err != nil {
+		return "failed", result.TracePath, WrapError(ErrorClass(err), "validate v0.3 provider smoke trace", err)
+	} else if kind != "trace" {
+		return "failed", result.TracePath, NewError(ErrVerificationFailed, fmt.Sprintf("validate v0.3 provider smoke trace returned kind %q", kind))
+	}
+	return "passed", result.TracePath, nil
 }
 
 func validateV03AdapterCatalog(adapters []AdapterMetadata) error {

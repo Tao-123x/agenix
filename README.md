@@ -277,12 +277,13 @@ artifact loop.
 Run the opt-in remote smoke path:
 
 ```bash
-OPENAI_API_KEY="$OPENAI_API_KEY" go run ./cmd/agenix run examples/repo.analyze_test_failures.remote/manifest.yaml --adapter openai-analyze
+go run ./cmd/agenix acceptance --v0.3 --provider-smoke
 ```
 
-This path is opt-in, requires `permissions.network=true`, and is outside the
-default offline CI sweep. It exercises the provider-backed remote adapter path
-without changing the manifest contract or widening the default runtime surface.
+This path is opt-in, requires `OPENAI_API_KEY`, and is outside the default
+offline CI sweep. Without credentials, it records
+`provider_smoke=skipped_no_credentials`; with credentials, it runs the
+read-only `openai-analyze` adapter and reports the provider smoke trace path.
 Provider-backed OpenAI requests default to a 30 second timeout and a 1 MiB
 response body limit. Set `AGENIX_OPENAI_TIMEOUT_MS` or
 `AGENIX_OPENAI_MAX_RESPONSE_BYTES` to override those limits for local smoke
@@ -327,6 +328,9 @@ failure reports still carry structured trace evidence.
 the builtin adapter catalog, validates compatibility reports for manifest,
 artifact, and registry-reference targets, and records provider-backed smoke as
 `skipped_offline` in the default gate.
+
+Use `agenix acceptance --v0.3 --provider-smoke` when you want the release record
+to include the explicit provider smoke result.
 
 For local full verification before cutting or reviewing a release, run:
 
