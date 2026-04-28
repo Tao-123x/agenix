@@ -283,6 +283,7 @@ verifier 来检查重构后的结构。
 ```bash
 go run ./cmd/agenix acceptance
 go run ./cmd/agenix acceptance --v0.2
+go run ./cmd/agenix acceptance --v0.3
 ```
 
 `agenix acceptance` 是 reference runtime 的 canonical V0 acceptance 命令。它会在本地
@@ -294,11 +295,17 @@ publish / pull，以及直接使用 registry reference 执行。
 skill，校验生成的 manifest，构建和运行 artifact，检查成功和失败两种 `check_report`
 JSON，并证明失败报告仍然带有结构化 trace 证据。
 
+`agenix acceptance --v0.3` 是 V0.3 adapter readiness release gate。它会检查内置
+adapter catalog，分别校验 manifest、artifact 和 registry-reference 目标的
+compatibility report，并在默认 gate 中把 provider-backed smoke 记录为
+`skipped_offline`。
+
 在 cut 或 review release 前，本地完整验证命令是：
 
 ```bash
 go run ./cmd/agenix acceptance
 go run ./cmd/agenix acceptance --v0.2
+go run ./cmd/agenix acceptance --v0.3
 go test -count=1 ./...
 go vet ./...
 go build ./cmd/agenix
@@ -306,7 +313,7 @@ go build ./cmd/agenix
 
 V0 acceptance 有意限定为本地 reference-runtime gate。它不声称提供强 sandbox、远程执行器
 语义、registry trust、签名、OCI 分发或 provider-backed 远程 adapter 覆盖。可选的
-`openai-analyze` smoke 路径仍然不属于默认 V0 acceptance sweep。
+`openai-analyze` live smoke 路径仍然不属于默认离线 acceptance sweep。
 
 参见 [V0 release checklist](docs/v0-release-checklist.zh-CN.md) 和
 [v0.2.0 发布说明](docs/releases/v0.2.0.zh-CN.md)。

@@ -54,7 +54,7 @@ func TestUsageMentionsAcceptanceCommand(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected usage error")
 	}
-	if !strings.Contains(err.Error(), "acceptance [--v0.2]") {
+	if !strings.Contains(err.Error(), "acceptance [--v0.2|--v0.3]") {
 		t.Fatalf("usage missing acceptance command: %v", err)
 	}
 }
@@ -78,6 +78,17 @@ func TestCLIAcceptanceRunsV02AuthoringSweep(t *testing.T) {
 	text := strings.TrimSpace(string(out))
 	if text != "status=passed release=v0.2 templates=2 skills=2 checks=3 failure_reports=1" {
 		t.Fatalf("unexpected v0.2 acceptance output: %s", text)
+	}
+}
+
+func TestCLIAcceptanceRunsV03AdapterReadinessSweep(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "acceptance", "--v0.3").CombinedOutput()
+	if err != nil {
+		t.Fatalf("v0.3 acceptance failed: %v\n%s", err, out)
+	}
+	text := strings.TrimSpace(string(out))
+	if text != "status=passed release=v0.3 adapters=5 compatibility_reports=3 schemas=3 provider_smoke=skipped_offline" {
+		t.Fatalf("unexpected v0.3 acceptance output: %s", text)
 	}
 }
 

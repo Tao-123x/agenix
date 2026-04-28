@@ -42,3 +42,25 @@ func TestV02AcceptanceSweepForSkillAuthoringRelease(t *testing.T) {
 		t.Fatalf("v0.2 failure report count = %d", summary.FailureReportCount)
 	}
 }
+
+func TestV03AcceptanceSweepForAdapterReadinessRelease(t *testing.T) {
+	summary, err := RunV03AcceptanceSweep(AcceptanceOptions{WorkDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("v0.3 acceptance sweep failed: %v", err)
+	}
+	if summary.Status != "passed" {
+		t.Fatalf("v0.3 acceptance status = %q", summary.Status)
+	}
+	if summary.AdapterCount != 5 {
+		t.Fatalf("v0.3 adapter count = %d", summary.AdapterCount)
+	}
+	if summary.CompatibilityReportCount != 3 {
+		t.Fatalf("v0.3 compatibility report count = %d", summary.CompatibilityReportCount)
+	}
+	if summary.SchemaCount != 3 {
+		t.Fatalf("v0.3 schema count = %d", summary.SchemaCount)
+	}
+	if summary.ProviderSmokeStatus != "skipped_offline" {
+		t.Fatalf("v0.3 provider smoke status = %q", summary.ProviderSmokeStatus)
+	}
+}

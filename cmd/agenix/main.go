@@ -33,6 +33,14 @@ func run(args []string) error {
 			fmt.Println(formatV02AcceptanceSummary(summary))
 			return nil
 		}
+		if len(args) == 2 && args[1] == "--v0.3" {
+			summary, err := agenix.RunV03AcceptanceSweep(agenix.AcceptanceOptions{})
+			if err != nil {
+				return err
+			}
+			fmt.Println(formatV03AcceptanceSummary(summary))
+			return nil
+		}
 		if len(args) != 1 {
 			return usage()
 		}
@@ -186,7 +194,7 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix adapters [--json] | adapters compatible <manifest|artifact|skill@version> [--registry <dir>] [--json] | acceptance [--v0.2] | init templates [--json] | init skill <name> --template <python-pytest|repo-fix-test-failure> -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] [--json] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace|check-report> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix adapters [--json] | adapters compatible <manifest|artifact|skill@version> [--registry <dir>] [--json] | acceptance [--v0.2|--v0.3] | init templates [--json] | init skill <name> --template <python-pytest|repo-fix-test-failure> -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] [--json] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace|check-report|adapter-compatibility-report> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
 }
 
 func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
@@ -195,6 +203,10 @@ func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
 
 func formatV02AcceptanceSummary(summary agenix.AcceptanceSummary) string {
 	return fmt.Sprintf("status=%s release=v0.2 templates=%d skills=%d checks=%d failure_reports=%d", summary.Status, summary.TemplateCount, summary.SkillCount, summary.CheckCount, summary.FailureReportCount)
+}
+
+func formatV03AcceptanceSummary(summary agenix.AcceptanceSummary) string {
+	return fmt.Sprintf("status=%s release=v0.3 adapters=%d compatibility_reports=%d schemas=%d provider_smoke=%s", summary.Status, summary.AdapterCount, summary.CompatibilityReportCount, summary.SchemaCount, summary.ProviderSmokeStatus)
 }
 
 func formatInitSkillResult(result agenix.InitSkillResult) string {

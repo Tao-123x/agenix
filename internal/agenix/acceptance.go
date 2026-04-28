@@ -13,12 +13,16 @@ type AcceptanceOptions struct {
 }
 
 type AcceptanceSummary struct {
-	Status             string
-	SkillCount         int
-	RunCount           int
-	TemplateCount      int
-	CheckCount         int
-	FailureReportCount int
+	Status                   string
+	SkillCount               int
+	RunCount                 int
+	TemplateCount            int
+	CheckCount               int
+	FailureReportCount       int
+	AdapterCount             int
+	CompatibilityReportCount int
+	SchemaCount              int
+	ProviderSmokeStatus      string
 }
 
 type acceptanceSkill struct {
@@ -37,6 +41,12 @@ type authoringAcceptanceSkill struct {
 	changedBase   string
 	readOnly      bool
 	expectedSkill string
+}
+
+type v03CompatibilityTarget struct {
+	name         string
+	target       string
+	registryRoot string
 }
 
 func RunV0AcceptanceSweep(options AcceptanceOptions) (AcceptanceSummary, error) {
@@ -136,6 +146,76 @@ func RunV02AcceptanceSweep(options AcceptanceOptions) (AcceptanceSummary, error)
 	}
 	summary.FailureReportCount = 1
 	summary.RunCount++
+	return summary, nil
+}
+
+func RunV03AcceptanceSweep(options AcceptanceOptions) (AcceptanceSummary, error) {
+	rootDir, err := acceptanceRootDir(options.RootDir)
+	if err != nil {
+		return AcceptanceSummary{Status: "failed"}, err
+	}
+	workDir, cleanup, err := acceptanceWorkDir(options.WorkDir)
+	if err != nil {
+		return AcceptanceSummary{Status: "failed"}, err
+	}
+	defer cleanup()
+
+	adapters := ListBuiltinAdapters()
+	summary := AcceptanceSummary{
+		Status:              "passed",
+		AdapterCount:        len(adapters),
+		ProviderSmokeStatus: "skipped_offline",
+	}
+	if err := validateV03AdapterCatalog(adapters); err != nil {
+		summary.Status = "failed"
+		return summary, err
+	}
+
+	remoteSkillDir := filepath.Join(rootDir, "examples", "repo.analyze_test_failures.remote")
+	remoteManifestPath := filepath.Join(remoteSkillDir, "manifest.yaml")
+	v03WorkDir := filepath.Join(workDir, "v0.3", "adapter-readiness")
+	reportsDir := filepath.Join(v03WorkDir, "reports")
+	registryRoot := filepath.Join(v03WorkDir, "registry")
+	artifactPath := filepath.Join(v03WorkDir, "repo.analyze_test_failures.remote.agenix")
+
+	targets := []v03CompatibilityTarget{
+		{name: "manifest", target: remoteManifestPath},
+	}
+
+	if _, err := BuildArtifact(BuildOptions{SkillDir: remoteSkillDir, OutputPath: artifactPath}); err != nil {
+		summary.Status = "failed"
+		return summary, WrapError(ErrorClass(err), "build v0.3 remote analysis artifact", err)
+	}
+	targets = append(targets, v03CompatibilityTarget{name: "artifact", target: artifactPath})
+
+	if _, err := PublishArtifact(PublishOptions{ArtifactPath: artifactPath, RegistryRoot: registryRoot}); err != nil {
+		summary.Status = "failed"
+		return summary, WrapError(ErrorClass(err), "publish v0.3 remote analysis artifact", err)
+	}
+	targets = append(targets, v03CompatibilityTarget{name: "registry", target: "repo.analyze_test_failures.remote@0.1.0", registryRoot: registryRoot})
+
+	for _, target := range targets {
+		report, err := CheckBuiltinAdapterCompatibility(AdapterCompatibilityOptions{
+			Target:       target.target,
+			RegistryRoot: target.registryRoot,
+			WorkDir:      filepath.Join(v03WorkDir, "compat-workspaces"),
+		})
+		if err != nil {
+			summary.Status = "failed"
+			return summary, WrapError(ErrorClass(err), "check v0.3 adapter compatibility for "+target.name, err)
+		}
+		summary.CompatibilityReportCount++
+		if err := validateV03CompatibilityReport(report, len(adapters)); err != nil {
+			summary.Status = "failed"
+			return summary, err
+		}
+		reportPath := filepath.Join(reportsDir, target.name+"-adapter-compatibility.json")
+		if err := writeAndValidateAdapterCompatibilityReport(report, reportPath); err != nil {
+			summary.Status = "failed"
+			return summary, err
+		}
+		summary.SchemaCount++
+	}
 	return summary, nil
 }
 
@@ -388,6 +468,97 @@ func writeAndValidateCheckReport(result CheckResult, path string) error {
 		return NewError(ErrVerificationFailed, fmt.Sprintf("validate check report returned kind %q", kind))
 	}
 	return nil
+}
+
+func validateV03AdapterCatalog(adapters []AdapterMetadata) error {
+	if len(adapters) != 5 {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("expected 5 builtin adapters, got %d", len(adapters)))
+	}
+	openai, ok := adapterMetadataByName(adapters, "openai-analyze")
+	if !ok {
+		return NewError(ErrVerificationFailed, "v0.3 adapter catalog is missing openai-analyze")
+	}
+	if openai.Provider != "openai" || openai.Transport != "remote" {
+		return NewError(ErrVerificationFailed, "openai-analyze adapter metadata is missing provider or remote transport")
+	}
+	if !openai.Capabilities.ToolCalling || !openai.Capabilities.StructuredOutput {
+		return NewError(ErrVerificationFailed, "openai-analyze adapter metadata is missing required capabilities")
+	}
+	heuristic, ok := adapterMetadataByName(adapters, "heuristic-analyze")
+	if !ok {
+		return NewError(ErrVerificationFailed, "v0.3 adapter catalog is missing heuristic-analyze")
+	}
+	if heuristic.Transport != "local" || heuristic.Provider != "" {
+		return NewError(ErrVerificationFailed, "heuristic-analyze adapter metadata should stay local")
+	}
+	return nil
+}
+
+func validateV03CompatibilityReport(report AdapterCompatibilityReport, adapterCount int) error {
+	if report.Kind != AdapterCompatibilityReportKind {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("v0.3 compatibility report kind = %q", report.Kind))
+	}
+	if report.Skill != "repo.analyze_test_failures.remote" {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("v0.3 compatibility report skill = %q", report.Skill))
+	}
+	if report.Version != "0.1.0" {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("v0.3 compatibility report version = %q", report.Version))
+	}
+	if len(report.Adapters) != adapterCount {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("v0.3 compatibility adapter count = %d", len(report.Adapters)))
+	}
+	openai, ok := adapterCompatibilityByName(report.Adapters, "openai-analyze")
+	if !ok {
+		return NewError(ErrVerificationFailed, "v0.3 compatibility report is missing openai-analyze")
+	}
+	if !openai.Compatible || openai.ErrorClass != "" || openai.Transport != "remote" || openai.Provider != "openai" {
+		return NewError(ErrVerificationFailed, "openai-analyze should pass remote compatibility preflight")
+	}
+	fake, ok := adapterCompatibilityByName(report.Adapters, "fake-scripted")
+	if !ok {
+		return NewError(ErrVerificationFailed, "v0.3 compatibility report is missing fake-scripted")
+	}
+	if fake.Compatible || fake.ErrorClass != ErrUnsupportedAdapter {
+		return NewError(ErrVerificationFailed, "fake-scripted should reject unsupported remote analysis skill")
+	}
+	return nil
+}
+
+func writeAndValidateAdapterCompatibilityReport(report AdapterCompatibilityReport, path string) error {
+	if err := ensureParent(path); err != nil {
+		return WrapError(ErrDriverError, "create adapter compatibility report parent", err)
+	}
+	raw, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return WrapError(ErrDriverError, "encode adapter compatibility report", err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		return WrapError(ErrDriverError, "write adapter compatibility report", err)
+	}
+	if kind, _, err := ValidateTarget(path); err != nil {
+		return WrapError(ErrorClass(err), "validate adapter compatibility report", err)
+	} else if kind != "adapter_compatibility_report" {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("validate adapter compatibility report returned kind %q", kind))
+	}
+	return nil
+}
+
+func adapterMetadataByName(adapters []AdapterMetadata, name string) (AdapterMetadata, bool) {
+	for _, adapter := range adapters {
+		if adapter.Name == name {
+			return adapter, true
+		}
+	}
+	return AdapterMetadata{}, false
+}
+
+func adapterCompatibilityByName(adapters []AdapterCompatibility, name string) (AdapterCompatibility, bool) {
+	for _, adapter := range adapters {
+		if adapter.Name == name {
+			return adapter, true
+		}
+	}
+	return AdapterCompatibility{}, false
 }
 
 func findProjectRoot(start string) (string, error) {

@@ -309,6 +309,7 @@ Run the release gates:
 ```bash
 go run ./cmd/agenix acceptance
 go run ./cmd/agenix acceptance --v0.2
+go run ./cmd/agenix acceptance --v0.3
 ```
 
 `agenix acceptance` is the canonical V0 acceptance command for the reference
@@ -322,11 +323,17 @@ from both built-in templates, validates generated manifests, builds and runs
 artifacts, checks passing and failing `check_report` JSON, and proves that
 failure reports still carry structured trace evidence.
 
+`agenix acceptance --v0.3` is the V0.3 adapter readiness release gate. It checks
+the builtin adapter catalog, validates compatibility reports for manifest,
+artifact, and registry-reference targets, and records provider-backed smoke as
+`skipped_offline` in the default gate.
+
 For local full verification before cutting or reviewing a release, run:
 
 ```bash
 go run ./cmd/agenix acceptance
 go run ./cmd/agenix acceptance --v0.2
+go run ./cmd/agenix acceptance --v0.3
 go test -count=1 ./...
 go vet ./...
 go build ./cmd/agenix
@@ -335,7 +342,8 @@ go build ./cmd/agenix
 V0 acceptance is intentionally a local reference-runtime gate. It does not claim
 a strong sandbox, remote executor semantics, registry trust, signatures, OCI
 distribution, or provider-backed remote adapter coverage. The opt-in
-`openai-analyze` smoke path remains outside the default V0 acceptance sweep.
+`openai-analyze` live smoke path remains outside the default offline acceptance
+sweeps.
 
 See [V0 release checklist](docs/v0-release-checklist.md) for the factual release
 gate. See [v0.2.0 release notes](docs/releases/v0.2.0.md) for the authoring

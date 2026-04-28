@@ -25,6 +25,8 @@ jobs:
         run: go run ./cmd/agenix acceptance
       - name: Run V0.2 authoring acceptance gate
         run: go run ./cmd/agenix acceptance --v0.2
+      - name: Run V0.3 adapter readiness acceptance gate
+        run: go run ./cmd/agenix acceptance --v0.3
       - name: Run Go tests
         run: go test -count=1 ./...
       - name: Run Go vet
