@@ -81,6 +81,7 @@ Agenix 定义了五层：
 - [Policy](specs/policy.md) / [Policy.zh-CN](specs/policy.zh-CN.md)
 - [v0.1.0 Release Notes](docs/releases/v0.1.0.md) / [中文](docs/releases/v0.1.0.zh-CN.md)
 - [v0.2.0 Release Notes](docs/releases/v0.2.0.md) / [中文](docs/releases/v0.2.0.zh-CN.md)
+- [v0.3.0 Release Notes](docs/releases/v0.3.0.md) / [中文](docs/releases/v0.3.0.zh-CN.md)
 - [v0.2.0 Plan](docs/releases/v0.2.0-plan.md) / [中文](docs/releases/v0.2.0-plan.zh-CN.md)
 - [v0.3.0 Plan](docs/releases/v0.3.0-plan.md) / [中文](docs/releases/v0.3.0-plan.zh-CN.md)
 
