@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -251,6 +252,70 @@ func TestCLICheckJSONReportCanBeValidated(t *testing.T) {
 	if !strings.Contains(text, "status=valid kind=check_report") ||
 		!strings.Contains(text, "check-report.schema.json") {
 		t.Fatalf("unexpected validate output: %s", text)
+	}
+}
+
+func TestCLICheckJSONFailurePrintsValidReport(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "repo.demo_skill")
+	reportPath := filepath.Join(root, "failed-check-report.json")
+
+	initOut, err := exec.Command("go", "run", ".", "init", "skill", "repo.demo_skill", "--template", "python-pytest", "-o", skillDir).CombinedOutput()
+	if err != nil {
+		t.Fatalf("init skill failed: %v\n%s", err, initOut)
+	}
+	brokenSource := `def normalize(value):
+    return value
+`
+	if err := os.WriteFile(filepath.Join(skillDir, "fixture", "skill.py"), []byte(brokenSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command("go", "run", ".", "check", skillDir, "--adapter", "python-pytest-template", "--json")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	checkOut, err := cmd.Output()
+	if err == nil {
+		t.Fatalf("expected check to fail, stdout=%s stderr=%s", checkOut, stderr.String())
+	}
+
+	var report struct {
+		Kind         string   `json:"kind"`
+		Status       string   `json:"status"`
+		Skill        string   `json:"skill"`
+		RunID        string   `json:"run_id"`
+		TracePath    string   `json:"trace_path"`
+		ChangedFiles []string `json:"changed_files"`
+		ErrorClass   string   `json:"error_class"`
+		ErrorMessage string   `json:"error_message"`
+	}
+	if err := json.Unmarshal(checkOut, &report); err != nil {
+		t.Fatalf("failed check stdout is not JSON: %v\nstdout=%s\nstderr=%s", err, checkOut, stderr.String())
+	}
+	if report.Kind != "check_report" || report.Status != "failed" || report.Skill != "repo.demo_skill" {
+		t.Fatalf("unexpected failed report identity: %#v", report)
+	}
+	if report.RunID == "" || report.TracePath == "" {
+		t.Fatalf("failed report missing run evidence: %#v", report)
+	}
+	if report.ChangedFiles == nil {
+		t.Fatalf("failed report changed_files should be an empty JSON array, got nil")
+	}
+	if report.ErrorClass != "VerificationFailed" || report.ErrorMessage == "" {
+		t.Fatalf("failed report missing stable error fields: %#v", report)
+	}
+	if !strings.Contains(stderr.String(), "error=VerificationFailed") {
+		t.Fatalf("stderr missing stable error class: %s", stderr.String())
+	}
+	if err := os.WriteFile(reportPath, checkOut, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	validateOut, err := exec.Command("go", "run", ".", "validate", reportPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate failed check report failed: %v\n%s", err, validateOut)
+	}
+	if !strings.Contains(string(validateOut), "status=valid kind=check_report") {
+		t.Fatalf("unexpected validate output: %s", validateOut)
 	}
 }
 

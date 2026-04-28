@@ -214,6 +214,8 @@ go run ./cmd/agenix replay "$TRACE_PATH"
   以及 verifier 是否在正确目录执行。
 - 权限失败：检查 `permissions.filesystem` 和 `permissions.shell.allow` 是否覆盖真实需要；
   先保持最小权限，确认需要时再扩大。
+- `agenix check --json` 失败时，stdout 仍然是合法 check report。先看
+  `error_class`、`error_message` 和 `trace_path`，再决定改代码、verifier 还是 policy。
 
 ## 12. 下一步：构建、分享、运行
 

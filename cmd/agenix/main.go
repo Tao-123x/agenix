@@ -51,11 +51,20 @@ func run(args []string) error {
 		}
 		adapter, err := agenix.ResolveBuiltinAdapter(checkOptions.AdapterName)
 		if err != nil {
+			if checkOptions.JSON {
+				if jsonErr := printJSON(agenix.NewFailedCheckResult(err)); jsonErr != nil {
+					return jsonErr
+				}
+			}
 			return err
 		}
 		result, err := agenix.CheckSkill(agenix.CheckOptions{Target: checkOptions.Target, RegistryRoot: checkOptions.RegistryRoot, Adapter: adapter})
 		if err != nil {
-			if result.TracePath != "" {
+			if checkOptions.JSON {
+				if jsonErr := printJSON(result.WithError(err)); jsonErr != nil {
+					return jsonErr
+				}
+			} else if result.TracePath != "" {
 				fmt.Printf("status=failed skill=%s artifact=%s run_id=%s trace=%s\n", result.Skill, result.ArtifactPath, result.RunID, result.TracePath)
 			}
 			return err

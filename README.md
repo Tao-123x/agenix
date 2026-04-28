@@ -134,7 +134,10 @@ the verifier decide success. `agenix check` is the one-command authoring gate:
 it validates the manifest, builds a temporary artifact, runs it, validates the
 trace, reruns verification, and replays the trace summary. Pass `--json` when
 CI or another agent needs a stable machine-readable report; the report uses
-`kind: check_report` and can be validated with `agenix validate`.
+`kind: check_report` and can be validated with `agenix validate`. When the
+gate fails, `--json` still writes the failed report to stdout with
+`error_class`, `error_message`, and any available `trace_path`, while the CLI
+keeps a non-zero exit code.
 
 Create a writable repair skill from the failing-test template:
 

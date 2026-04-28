@@ -26,10 +26,12 @@ type CheckResult struct {
 	ChangedFiles    []string `json:"changed_files"`
 	VerifierSummary []string `json:"verifier_summary"`
 	EventCount      int      `json:"event_count"`
+	ErrorClass      string   `json:"error_class,omitempty"`
+	ErrorMessage    string   `json:"error_message,omitempty"`
 }
 
 func CheckSkill(options CheckOptions) (CheckResult, error) {
-	result := CheckResult{Kind: CheckReportKind, Status: "failed"}
+	result := newCheckResult()
 	if strings.TrimSpace(options.Target) == "" {
 		return result, NewError(ErrInvalidInput, "check requires target")
 	}
@@ -74,7 +76,43 @@ func CheckSkill(options CheckOptions) (CheckResult, error) {
 	}
 	result.Status = "passed"
 	result.EventCount = replay.EventCount
-	return result, nil
+	return result.ensureArrays(), nil
+}
+
+func NewFailedCheckResult(err error) CheckResult {
+	return newCheckResult().WithError(err)
+}
+
+func (result CheckResult) WithError(err error) CheckResult {
+	result = result.ensureArrays()
+	if strings.TrimSpace(result.Kind) == "" {
+		result.Kind = CheckReportKind
+	}
+	result.Status = "failed"
+	if err != nil {
+		result.ErrorClass = ErrorClass(err)
+		result.ErrorMessage = err.Error()
+	}
+	return result
+}
+
+func newCheckResult() CheckResult {
+	return CheckResult{
+		Kind:            CheckReportKind,
+		Status:          "failed",
+		ChangedFiles:    []string{},
+		VerifierSummary: []string{},
+	}
+}
+
+func (result CheckResult) ensureArrays() CheckResult {
+	if result.ChangedFiles == nil {
+		result.ChangedFiles = []string{}
+	}
+	if result.VerifierSummary == nil {
+		result.VerifierSummary = []string{}
+	}
+	return result
 }
 
 func checkArtifactTarget(target, workDir string) (string, string, string, error) {

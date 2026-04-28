@@ -14,7 +14,7 @@
   ],
   "properties": {
     "kind": { "type": "string", "enum": ["check_report"] },
-    "status": { "type": "string" },
+    "status": { "type": "string", "enum": ["passed", "failed"] },
     "skill": { "type": "string" },
     "version": { "type": "string" },
     "artifact_path": { "type": "string" },
@@ -28,6 +28,8 @@
       "type": "array",
       "items": { "type": "string" }
     },
-    "event_count": { "type": "integer" }
+    "event_count": { "type": "integer" },
+    "error_class": { "type": "string" },
+    "error_message": { "type": "string" }
   }
 }

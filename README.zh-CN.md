@@ -131,7 +131,9 @@ go run ./cmd/agenix validate /tmp/report.json
 `agenix check` 是一条命令的 authoring gate：它会校验 manifest、构建临时 artifact、
 运行 artifact、校验 trace、重跑 verifier，并回放 trace summary。CI 或其他 agent
 需要稳定的机器可读报告时，可以传 `--json`；报告使用 `kind: check_report`，
-并且可以用 `agenix validate` 校验。
+并且可以用 `agenix validate` 校验。gate 失败时，`--json` 仍会把失败 report
+写到 stdout，包含 `error_class`、`error_message` 和可用的 `trace_path`，同时
+CLI 保持非零退出码。
 
 从失败测试模板创建一个可写修复 skill：
 

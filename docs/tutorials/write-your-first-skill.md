@@ -231,6 +231,9 @@ rm -rf /tmp/repo.demo_fix
   field. Keep `outputs.required` aligned with the adapter contract.
 - `run_tests` fails: the repair is wrong, the verifier command is wrong, or
   pytest is missing. Run pytest directly against the fixture to isolate it.
+- When `agenix check --json` fails, stdout is still a valid check report. Save
+  it and inspect `error_class`, `error_message`, and `trace_path` before
+  changing the manifest.
 
 ## 10. Build And Run The Artifact
 
