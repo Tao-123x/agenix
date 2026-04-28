@@ -60,3 +60,15 @@ func TestV0ReleaseGateWorkflowDisablesGoCacheWithoutGoSum(t *testing.T) {
 		t.Fatalf("workflow should disable setup-go cache when go.sum is absent:\n%s", text)
 	}
 }
+
+func TestV0ReleaseGateWorkflowOptsIntoNode24ActionsRuntime(t *testing.T) {
+	path := filepath.Join("..", "..", ".github", "workflows", "v0-release-gate.yml")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read v0 release gate workflow: %v", err)
+	}
+	text := string(raw)
+	if !strings.Contains(text, "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true") {
+		t.Fatalf("workflow should opt into the Node 24 actions runtime:\n%s", text)
+	}
+}
