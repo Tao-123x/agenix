@@ -70,6 +70,17 @@ func TestCLIAcceptanceRunsV0Sweep(t *testing.T) {
 	}
 }
 
+func TestCLIAcceptanceRunsV02AuthoringSweep(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "acceptance", "--v0.2").CombinedOutput()
+	if err != nil {
+		t.Fatalf("v0.2 acceptance failed: %v\n%s", err, out)
+	}
+	text := strings.TrimSpace(string(out))
+	if text != "status=passed release=v0.2 templates=2 skills=2 checks=3 failure_reports=1" {
+		t.Fatalf("unexpected v0.2 acceptance output: %s", text)
+	}
+}
+
 func TestCLIInitTemplatesListsBuiltins(t *testing.T) {
 	out, err := exec.Command("go", "run", ".", "init", "templates").CombinedOutput()
 	if err != nil {
@@ -286,6 +297,7 @@ func TestCLICheckJSONFailurePrintsValidReport(t *testing.T) {
 		RunID        string   `json:"run_id"`
 		TracePath    string   `json:"trace_path"`
 		ChangedFiles []string `json:"changed_files"`
+		EventCount   int      `json:"event_count"`
 		ErrorClass   string   `json:"error_class"`
 		ErrorMessage string   `json:"error_message"`
 	}
@@ -300,6 +312,9 @@ func TestCLICheckJSONFailurePrintsValidReport(t *testing.T) {
 	}
 	if report.ChangedFiles == nil {
 		t.Fatalf("failed report changed_files should be an empty JSON array, got nil")
+	}
+	if report.EventCount == 0 {
+		t.Fatalf("failed report missing event count: %#v", report)
 	}
 	if report.ErrorClass != "VerificationFailed" || report.ErrorMessage == "" {
 		t.Fatalf("failed report missing stable error fields: %#v", report)

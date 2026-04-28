@@ -1,6 +1,7 @@
 package agenix
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,9 +13,12 @@ type AcceptanceOptions struct {
 }
 
 type AcceptanceSummary struct {
-	Status     string
-	SkillCount int
-	RunCount   int
+	Status             string
+	SkillCount         int
+	RunCount           int
+	TemplateCount      int
+	CheckCount         int
+	FailureReportCount int
 }
 
 type acceptanceSkill struct {
@@ -24,6 +28,15 @@ type acceptanceSkill struct {
 	adapter       Adapter
 	changedBase   string
 	readOnly      bool
+}
+
+type authoringAcceptanceSkill struct {
+	name          string
+	template      string
+	adapterName   string
+	changedBase   string
+	readOnly      bool
+	expectedSkill string
 }
 
 func RunV0AcceptanceSweep(options AcceptanceOptions) (AcceptanceSummary, error) {
@@ -72,6 +85,60 @@ func RunV0AcceptanceSweep(options AcceptanceOptions) (AcceptanceSummary, error) 
 	return summary, nil
 }
 
+func RunV02AcceptanceSweep(options AcceptanceOptions) (AcceptanceSummary, error) {
+	if _, err := acceptanceRootDir(options.RootDir); err != nil {
+		return AcceptanceSummary{Status: "failed"}, err
+	}
+	workDir, cleanup, err := acceptanceWorkDir(options.WorkDir)
+	if err != nil {
+		return AcceptanceSummary{Status: "failed"}, err
+	}
+	defer cleanup()
+
+	templates := ListSkillTemplates()
+	if err := validateAuthoringTemplates(templates); err != nil {
+		return AcceptanceSummary{Status: "failed", TemplateCount: len(templates)}, err
+	}
+
+	skills := []authoringAcceptanceSkill{
+		{
+			name:          "python-pytest",
+			template:      PythonPytestTemplate,
+			adapterName:   "python-pytest-template",
+			expectedSkill: "repo.demo_skill",
+			readOnly:      true,
+		},
+		{
+			name:          "repo-fix-test-failure",
+			template:      RepoFixTestFailureTemplate,
+			adapterName:   "repo-fix-test-failure-template",
+			expectedSkill: "repo.demo_fix",
+			changedBase:   "mathlib.py",
+		},
+	}
+
+	summary := AcceptanceSummary{Status: "passed", TemplateCount: len(templates)}
+	for _, skill := range skills {
+		checks, err := runAuthoringAcceptanceSkill(workDir, skill)
+		summary.CheckCount += checks
+		if err != nil {
+			summary.Status = "failed"
+			return summary, err
+		}
+		summary.SkillCount++
+		summary.RunCount += 2
+	}
+	checks, err := runAuthoringFailureReportAcceptance(workDir)
+	summary.CheckCount += checks
+	if err != nil {
+		summary.Status = "failed"
+		return summary, err
+	}
+	summary.FailureReportCount = 1
+	summary.RunCount++
+	return summary, nil
+}
+
 func acceptanceRootDir(rootDir string) (string, error) {
 	if rootDir == "" {
 		cwd, err := os.Getwd()
@@ -102,6 +169,225 @@ func acceptanceWorkDir(workDir string) (string, func(), error) {
 		return "", func() {}, WrapError(ErrDriverError, "create acceptance work directory", err)
 	}
 	return workDir, func() {}, nil
+}
+
+func validateAuthoringTemplates(templates []SkillTemplateDescriptor) error {
+	if len(templates) != 2 {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("expected 2 authoring templates, got %d", len(templates)))
+	}
+	seen := map[string]SkillTemplateDescriptor{}
+	for _, template := range templates {
+		if template.Name == "" || template.Adapter == "" || template.Description == "" {
+			return NewError(ErrVerificationFailed, "authoring template descriptor is incomplete")
+		}
+		seen[template.Name] = template
+	}
+	if template, ok := seen[PythonPytestTemplate]; !ok || template.Adapter != "python-pytest-template" || template.Writes {
+		return NewError(ErrVerificationFailed, "python-pytest authoring template descriptor is invalid")
+	}
+	if template, ok := seen[RepoFixTestFailureTemplate]; !ok || template.Adapter != "repo-fix-test-failure-template" || !template.Writes {
+		return NewError(ErrVerificationFailed, "repo-fix-test-failure authoring template descriptor is invalid")
+	}
+	return nil
+}
+
+func runAuthoringAcceptanceSkill(workDir string, skill authoringAcceptanceSkill) (int, error) {
+	skillWorkDir := filepath.Join(workDir, "v0.2", skill.name)
+	skillDir := filepath.Join(skillWorkDir, skill.expectedSkill)
+	artifactPath := filepath.Join(skillWorkDir, skill.name+".agenix")
+	reportPath := filepath.Join(skillWorkDir, "check-report.json")
+
+	initResult, err := InitSkill(InitSkillOptions{Name: skill.expectedSkill, Template: skill.template, OutputDir: skillDir})
+	if err != nil {
+		return 0, WrapError(ErrorClass(err), "init skill for "+skill.expectedSkill, err)
+	}
+	if initResult.Name != skill.expectedSkill || initResult.Template != skill.template {
+		return 0, NewError(ErrVerificationFailed, "init skill returned unexpected identity for "+skill.expectedSkill)
+	}
+	if err := validateGeneratedAuthoringManifest(skillDir, skill.expectedSkill); err != nil {
+		return 0, err
+	}
+
+	buildSummary, err := BuildArtifact(BuildOptions{SkillDir: skillDir, OutputPath: artifactPath})
+	if err != nil {
+		return 0, WrapError(ErrorClass(err), "build generated authoring artifact for "+skill.expectedSkill, err)
+	}
+	if buildSummary.Skill != skill.expectedSkill {
+		return 0, NewError(ErrVerificationFailed, fmt.Sprintf("build generated authoring artifact returned skill %q", buildSummary.Skill))
+	}
+	if inspectSummary, err := InspectArtifact(artifactPath); err != nil {
+		return 0, WrapError(ErrorClass(err), "inspect generated authoring artifact for "+skill.expectedSkill, err)
+	} else if inspectSummary.Skill != skill.expectedSkill {
+		return 0, NewError(ErrVerificationFailed, fmt.Sprintf("inspect generated authoring artifact returned skill %q", inspectSummary.Skill))
+	}
+
+	adapter, err := ResolveBuiltinAdapter(skill.adapterName)
+	if err != nil {
+		return 0, err
+	}
+	runResult, err := Run(RunOptions{
+		ManifestPath: artifactPath,
+		RunDir:       filepath.Join(skillWorkDir, "runs"),
+		Adapter:      adapter,
+	})
+	if err != nil {
+		return 0, WrapError(ErrorClass(err), "run generated authoring artifact for "+skill.expectedSkill, err)
+	}
+	if err := validateAuthoringRunResult(skill, runResult); err != nil {
+		return 0, err
+	}
+	if kind, _, err := ValidateTarget(runResult.TracePath); err != nil {
+		return 0, WrapError(ErrorClass(err), "validate generated authoring trace for "+skill.expectedSkill, err)
+	} else if kind != "trace" {
+		return 0, NewError(ErrVerificationFailed, fmt.Sprintf("validate generated authoring trace returned kind %q", kind))
+	}
+
+	checkResult, err := CheckSkill(CheckOptions{
+		Target:  skillDir,
+		WorkDir: filepath.Join(skillWorkDir, "checks"),
+		Adapter: adapter,
+	})
+	if err != nil {
+		return 1, WrapError(ErrorClass(err), "check generated authoring skill for "+skill.expectedSkill, err)
+	}
+	if err := validateAuthoringCheckResult(skill, checkResult, "passed"); err != nil {
+		return 1, err
+	}
+	if err := writeAndValidateCheckReport(checkResult, reportPath); err != nil {
+		return 1, err
+	}
+	return 1, nil
+}
+
+func validateGeneratedAuthoringManifest(skillDir, expectedSkill string) error {
+	manifestPath := filepath.Join(skillDir, "manifest.yaml")
+	if kind, _, err := ValidateTarget(manifestPath); err != nil {
+		return WrapError(ErrorClass(err), "validate generated authoring manifest for "+expectedSkill, err)
+	} else if kind != "manifest" {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("validate generated authoring manifest returned kind %q", kind))
+	}
+	manifest, err := LoadManifest(manifestPath)
+	if err != nil {
+		return err
+	}
+	if manifest.Name != expectedSkill {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("generated authoring manifest name = %q", manifest.Name))
+	}
+	return nil
+}
+
+func validateAuthoringRunResult(skill authoringAcceptanceSkill, result RunResult) error {
+	if result.Status != "passed" {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("generated authoring run status = %q", result.Status))
+	}
+	if result.TracePath == "" {
+		return NewError(ErrVerificationFailed, "generated authoring run did not write trace for "+skill.expectedSkill)
+	}
+	if skill.readOnly {
+		if len(result.ChangedFiles) != 0 {
+			return NewError(ErrVerificationFailed, fmt.Sprintf("expected %s to report no changed files, got %v", skill.expectedSkill, result.ChangedFiles))
+		}
+		return nil
+	}
+	if len(result.ChangedFiles) != 1 || filepath.Base(result.ChangedFiles[0]) != skill.changedBase {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("expected %s changed_files to contain %s, got %v", skill.expectedSkill, skill.changedBase, result.ChangedFiles))
+	}
+	return nil
+}
+
+func validateAuthoringCheckResult(skill authoringAcceptanceSkill, result CheckResult, expectedStatus string) error {
+	if result.Kind != CheckReportKind {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("check report kind = %q", result.Kind))
+	}
+	if result.Status != expectedStatus {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("check report status = %q", result.Status))
+	}
+	if result.Skill != skill.expectedSkill {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("check report skill = %q", result.Skill))
+	}
+	if result.ArtifactPath == "" || result.RunID == "" || result.TracePath == "" {
+		return NewError(ErrVerificationFailed, "check report is missing artifact, run id, or trace path")
+	}
+	if result.EventCount == 0 {
+		return NewError(ErrVerificationFailed, "check report is missing event count")
+	}
+	if expectedStatus == "failed" {
+		if result.ErrorClass == "" || result.ErrorMessage == "" {
+			return NewError(ErrVerificationFailed, "failed check report is missing error fields")
+		}
+		return nil
+	}
+	if result.ErrorClass != "" || result.ErrorMessage != "" {
+		return NewError(ErrVerificationFailed, "passed check report unexpectedly contains error fields")
+	}
+	return validateAuthoringRunResult(skill, RunResult{
+		Status:       result.Status,
+		TracePath:    result.TracePath,
+		ChangedFiles: result.ChangedFiles,
+	})
+}
+
+func runAuthoringFailureReportAcceptance(workDir string) (int, error) {
+	skill := authoringAcceptanceSkill{
+		name:          "failure-report",
+		template:      PythonPytestTemplate,
+		adapterName:   "python-pytest-template",
+		expectedSkill: "repo.demo_broken",
+		readOnly:      true,
+	}
+	skillWorkDir := filepath.Join(workDir, "v0.2", skill.name)
+	skillDir := filepath.Join(skillWorkDir, skill.expectedSkill)
+	reportPath := filepath.Join(skillWorkDir, "failed-check-report.json")
+	if _, err := InitSkill(InitSkillOptions{Name: skill.expectedSkill, Template: skill.template, OutputDir: skillDir}); err != nil {
+		return 0, WrapError(ErrorClass(err), "init failed authoring skill", err)
+	}
+	brokenSource := []byte("def normalize(value):\n    return value\n")
+	if err := os.WriteFile(filepath.Join(skillDir, "fixture", "skill.py"), brokenSource, 0o600); err != nil {
+		return 0, WrapError(ErrDriverError, "break generated authoring fixture", err)
+	}
+	adapter, err := ResolveBuiltinAdapter(skill.adapterName)
+	if err != nil {
+		return 0, err
+	}
+	checkResult, err := CheckSkill(CheckOptions{
+		Target:  skillDir,
+		WorkDir: filepath.Join(skillWorkDir, "checks"),
+		Adapter: adapter,
+	})
+	if err == nil {
+		return 1, NewError(ErrVerificationFailed, "broken authoring skill unexpectedly passed check")
+	}
+	report := checkResult.WithError(err)
+	if report.ErrorClass != ErrVerificationFailed {
+		return 1, NewError(ErrVerificationFailed, fmt.Sprintf("failed check report error_class = %q", report.ErrorClass))
+	}
+	if err := validateAuthoringCheckResult(skill, report, "failed"); err != nil {
+		return 1, err
+	}
+	if err := writeAndValidateCheckReport(report, reportPath); err != nil {
+		return 1, err
+	}
+	return 1, nil
+}
+
+func writeAndValidateCheckReport(result CheckResult, path string) error {
+	result = result.ensureArrays()
+	if err := ensureParent(path); err != nil {
+		return WrapError(ErrDriverError, "create check report parent", err)
+	}
+	raw, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return WrapError(ErrDriverError, "encode check report", err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		return WrapError(ErrDriverError, "write check report", err)
+	}
+	if kind, _, err := ValidateTarget(path); err != nil {
+		return WrapError(ErrorClass(err), "validate check report", err)
+	} else if kind != "check_report" {
+		return NewError(ErrVerificationFailed, fmt.Sprintf("validate check report returned kind %q", kind))
+	}
+	return nil
 }
 
 func findProjectRoot(start string) (string, error) {

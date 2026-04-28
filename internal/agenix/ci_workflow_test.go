@@ -16,6 +16,7 @@ func TestV0ReleaseGateWorkflowRunsCanonicalVerification(t *testing.T) {
 	text := string(raw)
 	for _, command := range []string{
 		"go run ./cmd/agenix acceptance",
+		"go run ./cmd/agenix acceptance --v0.2",
 		"go test -count=1 ./...",
 		"go vet ./...",
 		"go build ./cmd/agenix",

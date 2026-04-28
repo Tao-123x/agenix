@@ -80,6 +80,7 @@ Core specs:
 - [Trace](specs/trace.md) / [Trace.zh-CN](specs/trace.zh-CN.md)
 - [Policy](specs/policy.md) / [Policy.zh-CN](specs/policy.zh-CN.md)
 - [v0.1.0 Release Notes](docs/releases/v0.1.0.md) / [中文](docs/releases/v0.1.0.zh-CN.md)
+- [v0.2.0 Release Notes](docs/releases/v0.2.0.md) / [中文](docs/releases/v0.2.0.zh-CN.md)
 - [v0.2.0 Plan](docs/releases/v0.2.0-plan.md) / [中文](docs/releases/v0.2.0-plan.zh-CN.md)
 
 Tutorials:
@@ -287,10 +288,11 @@ go run ./cmd/agenix run repo.apply_small_refactor.agenix
 This skill may write only `greeter.py`. A passing run reports that single file,
 runs the tests, and runs a verifier that checks the refactor shape.
 
-Run the V0 release gate:
+Run the release gates:
 
 ```bash
 go run ./cmd/agenix acceptance
+go run ./cmd/agenix acceptance --v0.2
 ```
 
 `agenix acceptance` is the canonical V0 acceptance command for the reference
@@ -299,10 +301,16 @@ manifest validation, portable capsule build and inspect, artifact execution,
 trace validation, verifier rerun, trace replay, local registry publish/pull, and
 direct registry-reference execution.
 
-For local full verification before cutting or reviewing a V0 release, run:
+`agenix acceptance --v0.2` is the V0.2 authoring release gate. It creates skills
+from both built-in templates, validates generated manifests, builds and runs
+artifacts, checks passing and failing `check_report` JSON, and proves that
+failure reports still carry structured trace evidence.
+
+For local full verification before cutting or reviewing a release, run:
 
 ```bash
 go run ./cmd/agenix acceptance
+go run ./cmd/agenix acceptance --v0.2
 go test -count=1 ./...
 go vet ./...
 go build ./cmd/agenix
@@ -314,7 +322,8 @@ distribution, or provider-backed remote adapter coverage. The opt-in
 `openai-analyze` smoke path remains outside the default V0 acceptance sweep.
 
 See [V0 release checklist](docs/v0-release-checklist.md) for the factual release
-gate.
+gate. See [v0.2.0 release notes](docs/releases/v0.2.0.md) for the authoring
+release gate.
 
 ## Roadmap & Definition of Done (DoD)
 

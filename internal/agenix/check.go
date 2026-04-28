@@ -53,6 +53,7 @@ func CheckSkill(options CheckOptions) (CheckResult, error) {
 	result.ChangedFiles = runResult.ChangedFiles
 	result.VerifierSummary = runResult.VerifierSummary
 	if err != nil {
+		result = result.withTraceEventCount()
 		return result, err
 	}
 	if _, _, err := ValidateTarget(runResult.TracePath); err != nil {
@@ -112,6 +113,18 @@ func (result CheckResult) ensureArrays() CheckResult {
 	if result.VerifierSummary == nil {
 		result.VerifierSummary = []string{}
 	}
+	return result
+}
+
+func (result CheckResult) withTraceEventCount() CheckResult {
+	if strings.TrimSpace(result.TracePath) == "" {
+		return result
+	}
+	replay, err := Replay(result.TracePath)
+	if err != nil {
+		return result
+	}
+	result.EventCount = replay.EventCount
 	return result
 }
 
