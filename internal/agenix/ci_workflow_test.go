@@ -48,3 +48,15 @@ func TestV0ReleaseGateWorkflowRunsOnAllSupportedHosts(t *testing.T) {
 		}
 	}
 }
+
+func TestV0ReleaseGateWorkflowDisablesGoCacheWithoutGoSum(t *testing.T) {
+	path := filepath.Join("..", "..", ".github", "workflows", "v0-release-gate.yml")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read v0 release gate workflow: %v", err)
+	}
+	text := string(raw)
+	if !strings.Contains(text, "cache: false") {
+		t.Fatalf("workflow should disable setup-go cache when go.sum is absent:\n%s", text)
+	}
+}
