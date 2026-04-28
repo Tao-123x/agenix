@@ -82,6 +82,7 @@ Core specs:
 - [v0.1.0 Release Notes](docs/releases/v0.1.0.md) / [中文](docs/releases/v0.1.0.zh-CN.md)
 - [v0.2.0 Release Notes](docs/releases/v0.2.0.md) / [中文](docs/releases/v0.2.0.zh-CN.md)
 - [v0.2.0 Plan](docs/releases/v0.2.0-plan.md) / [中文](docs/releases/v0.2.0-plan.zh-CN.md)
+- [v0.3.0 Plan](docs/releases/v0.3.0-plan.md) / [中文](docs/releases/v0.3.0-plan.zh-CN.md)
 
 Tutorials:
 
@@ -152,6 +153,19 @@ go run ./cmd/agenix validate /tmp/fix-report.json
 The pytest command should fail before `check`. The template adapter then fixes
 `fixture/mathlib.py` through the runtime `fs.write` tool, and the check report
 records the changed file after verifier pass.
+
+Discover builtin adapters and preflight compatibility before running a skill:
+
+```bash
+go run ./cmd/agenix adapters
+go run ./cmd/agenix adapters --json
+go run ./cmd/agenix adapters compatible examples/repo.fix_test_failure/manifest.yaml
+go run ./cmd/agenix adapters compatible examples/repo.analyze_test_failures.remote/manifest.yaml --json
+```
+
+Compatibility preflight is metadata-only. It checks adapter skill support,
+capability requirements, and remote-network policy before execution. It does
+not call providers, execute tools, run verifiers, or mutate workspaces.
 
 Run the canonical demo from the repository root:
 

@@ -168,18 +168,15 @@ func (RepoFixTestFailureTemplateAdapter) Execute(manifest Manifest, tools *Tools
 }
 
 func ResolveBuiltinAdapter(name string) (Adapter, error) {
-	switch name {
-	case "", "fake-scripted":
-		return FakeFixTestFailureAdapter{}, nil
-	case "heuristic-analyze":
-		return HeuristicAnalyzeTestFailuresAdapter{}, nil
-	case "openai-analyze":
-		return OpenAIAnalyzeAdapter{}, nil
-	case "python-pytest-template":
-		return PythonPytestTemplateAdapter{}, nil
-	case "repo-fix-test-failure-template":
-		return RepoFixTestFailureTemplateAdapter{}, nil
-	default:
-		return nil, NewError(ErrUnsupportedAdapter, "unknown adapter: "+name)
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		trimmed = "fake-scripted"
 	}
+	for _, adapter := range builtinAdapters() {
+		metadata := normalizeAdapterMetadata(adapter.Metadata())
+		if metadata.Name == trimmed {
+			return adapter, nil
+		}
+	}
+	return nil, NewError(ErrUnsupportedAdapter, "unknown adapter: "+name)
 }

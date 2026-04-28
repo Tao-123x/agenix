@@ -70,14 +70,7 @@ func Run(options RunOptions) (RunResult, error) {
 	if adapter == nil {
 		adapter = FakeFixTestFailureAdapter{}
 	}
-	metadata := adapter.Metadata()
-	if metadata.ModelProfile == "" {
-		metadata.ModelProfile = fakeModelProfile
-	}
-	if metadata.Name == "" {
-		metadata.Name = metadata.ModelProfile
-	}
-	metadata.Transport = normalizeTransport(metadata.Transport)
+	metadata := normalizeAdapterMetadata(adapter.Metadata())
 	trace := NewTrace(manifest.Name, metadata.ModelProfile, manifest.Permissions)
 	trace.RunID = runID
 	trace.ManifestPath = manifestPath

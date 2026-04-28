@@ -22,6 +22,8 @@ func run(args []string) error {
 		return usage()
 	}
 	switch args[0] {
+	case "adapters":
+		return runAdapters(args[1:])
 	case "acceptance":
 		if len(args) == 2 && args[1] == "--v0.2" {
 			summary, err := agenix.RunV02AcceptanceSweep(agenix.AcceptanceOptions{})
@@ -184,7 +186,7 @@ func run(args []string) error {
 }
 
 func usage() error {
-	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix acceptance [--v0.2] | init templates [--json] | init skill <name> --template <python-pytest|repo-fix-test-failure> -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] [--json] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace|check-report> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
+	return agenix.NewError(agenix.ErrInvalidInput, "usage: agenix adapters [--json] | adapters compatible <manifest|artifact|skill@version> [--registry <dir>] [--json] | acceptance [--v0.2] | init templates [--json] | init skill <name> --template <python-pytest|repo-fix-test-failure> -o <dir> | check <skill-dir|manifest|artifact> [--registry <dir>] [--adapter <name>] [--json] | build <skill-dir> -o <artifact> | inspect <artifact> | run <manifest> [--registry <dir>] [--adapter <name>] | verify <trace> | replay <trace> | validate <manifest|trace|check-report> | publish <artifact> [--registry <dir>] | pull <skill@version|sha256:digest> -o <artifact> [--registry <dir>] | registry list [--registry <dir>] | registry show <skill> [--registry <dir>] | registry resolve <skill@version|sha256:digest> [--registry <dir>]")
 }
 
 func formatAcceptanceSummary(summary agenix.AcceptanceSummary) string {
@@ -203,6 +205,48 @@ func formatSkillTemplates(templates []agenix.SkillTemplateDescriptor) string {
 	lines := make([]string, 0, len(templates))
 	for _, template := range templates {
 		lines = append(lines, fmt.Sprintf("template=%s adapter=%s writes=%t description=%s", template.Name, template.Adapter, template.Writes, template.Description))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatAdapters(adapters []agenix.AdapterMetadata) string {
+	lines := make([]string, 0, len(adapters))
+	for _, adapter := range adapters {
+		lines = append(lines, fmt.Sprintf("adapter=%s model=%s provider=%s transport=%s supported_skills=%s tool_calling=%t structured_output=%t max_context_tokens=%d reasoning_level=%s",
+			adapter.Name,
+			adapter.ModelProfile,
+			adapter.Provider,
+			adapter.Transport,
+			strings.Join(adapter.SupportedSkills, ","),
+			adapter.Capabilities.ToolCalling,
+			adapter.Capabilities.StructuredOutput,
+			adapter.Capabilities.MaxContextTokens,
+			adapter.Capabilities.ReasoningLevel,
+		))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatAdapterCompatibility(report agenix.AdapterCompatibilityReport) string {
+	lines := make([]string, 0, len(report.Adapters))
+	for _, adapter := range report.Adapters {
+		parts := []string{
+			"skill=" + report.Skill,
+			"version=" + report.Version,
+			"adapter=" + adapter.Name,
+			fmt.Sprintf("compatible=%t", adapter.Compatible),
+		}
+		if adapter.ErrorClass != "" {
+			parts = append(parts, "error_class="+adapter.ErrorClass)
+		}
+		if adapter.ErrorMessage != "" {
+			parts = append(parts, "error_message="+adapter.ErrorMessage)
+		}
+		parts = append(parts, "transport="+adapter.Transport)
+		if adapter.Provider != "" {
+			parts = append(parts, "provider="+adapter.Provider)
+		}
+		lines = append(lines, strings.Join(parts, " "))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -382,6 +426,56 @@ func parseCheckArgs(args []string) (checkCommandOptions, error) {
 		}
 	}
 	return options, nil
+}
+
+func runAdapters(args []string) error {
+	if len(args) == 0 {
+		fmt.Println(formatAdapters(agenix.ListBuiltinAdapters()))
+		return nil
+	}
+	if len(args) == 1 && args[0] == "--json" {
+		return printJSON(agenix.ListBuiltinAdapters())
+	}
+	if args[0] != "compatible" {
+		return usage()
+	}
+	options, jsonOutput, err := parseAdaptersCompatibleArgs(args[1:])
+	if err != nil {
+		return err
+	}
+	report, err := agenix.CheckBuiltinAdapterCompatibility(options)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		return printJSON(report)
+	}
+	fmt.Println(formatAdapterCompatibility(report))
+	return nil
+}
+
+func parseAdaptersCompatibleArgs(args []string) (agenix.AdapterCompatibilityOptions, bool, error) {
+	if len(args) < 1 {
+		return agenix.AdapterCompatibilityOptions{}, false, usage()
+	}
+	options := agenix.AdapterCompatibilityOptions{Target: args[0]}
+	jsonOutput := false
+	for i := 1; i < len(args); {
+		switch args[i] {
+		case "--json":
+			jsonOutput = true
+			i++
+		case "--registry":
+			if i+1 >= len(args) {
+				return agenix.AdapterCompatibilityOptions{}, false, usage()
+			}
+			options.RegistryRoot = args[i+1]
+			i += 2
+		default:
+			return agenix.AdapterCompatibilityOptions{}, false, usage()
+		}
+	}
+	return options, jsonOutput, nil
 }
 
 func runInit(args []string) error {

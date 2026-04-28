@@ -54,7 +54,7 @@ func TestUsageMentionsAcceptanceCommand(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected usage error")
 	}
-	if !strings.Contains(err.Error(), "agenix acceptance") {
+	if !strings.Contains(err.Error(), "acceptance [--v0.2]") {
 		t.Fatalf("usage missing acceptance command: %v", err)
 	}
 }
@@ -118,6 +118,128 @@ func TestCLIInitTemplatesPrintsJSON(t *testing.T) {
 	}
 	if templates[1].Name != "repo-fix-test-failure" || templates[1].Adapter != "repo-fix-test-failure-template" || !templates[1].Writes {
 		t.Fatalf("unexpected second template: %#v", templates[1])
+	}
+}
+
+func TestCLIAdaptersListsBuiltins(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "adapters").CombinedOutput()
+	if err != nil {
+		t.Fatalf("adapters failed: %v\n%s", err, out)
+	}
+	text := string(out)
+	for _, want := range []string{
+		"adapter=fake-scripted",
+		"adapter=openai-analyze",
+		"transport=remote",
+		"supported_skills=repo.analyze_test_failures.remote",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("adapters output missing %q: %s", want, text)
+		}
+	}
+}
+
+func TestCLIAdaptersPrintsJSON(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "adapters", "--json").CombinedOutput()
+	if err != nil {
+		t.Fatalf("adapters --json failed: %v\n%s", err, out)
+	}
+	var adapters []struct {
+		Name      string `json:"name"`
+		Provider  string `json:"provider"`
+		Transport string `json:"transport"`
+	}
+	if err := json.Unmarshal(out, &adapters); err != nil {
+		t.Fatalf("adapters output is not JSON: %v\n%s", err, out)
+	}
+	if len(adapters) != 5 {
+		t.Fatalf("adapter count = %d, want 5: %#v", len(adapters), adapters)
+	}
+	if adapters[0].Name != "fake-scripted" || adapters[0].Transport != "local" {
+		t.Fatalf("unexpected first adapter: %#v", adapters[0])
+	}
+	if adapters[2].Name != "openai-analyze" || adapters[2].Provider != "openai" || adapters[2].Transport != "remote" {
+		t.Fatalf("unexpected OpenAI adapter descriptor: %#v", adapters[2])
+	}
+}
+
+func TestCLIAdaptersCompatiblePreflightsManifest(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "adapters", "compatible", filepath.Join("..", "..", "examples", "repo.fix_test_failure", "manifest.yaml")).CombinedOutput()
+	if err != nil {
+		t.Fatalf("adapters compatible failed: %v\n%s", err, out)
+	}
+	text := string(out)
+	for _, want := range []string{
+		"skill=repo.fix_test_failure",
+		"adapter=fake-scripted compatible=true",
+		"adapter=openai-analyze compatible=false error_class=UnsupportedAdapter",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("compatible output missing %q: %s", want, text)
+		}
+	}
+}
+
+func TestCLIAdaptersCompatiblePrintsJSON(t *testing.T) {
+	out, err := exec.Command("go", "run", ".", "adapters", "compatible", filepath.Join("..", "..", "examples", "repo.analyze_test_failures.remote", "manifest.yaml"), "--json").CombinedOutput()
+	if err != nil {
+		t.Fatalf("adapters compatible --json failed: %v\n%s", err, out)
+	}
+	var report struct {
+		Kind     string `json:"kind"`
+		Skill    string `json:"skill"`
+		Adapters []struct {
+			Name       string `json:"name"`
+			Transport  string `json:"transport"`
+			Compatible bool   `json:"compatible"`
+			ErrorClass string `json:"error_class,omitempty"`
+		} `json:"adapters"`
+	}
+	if err := json.Unmarshal(out, &report); err != nil {
+		t.Fatalf("compatible output is not JSON: %v\n%s", err, out)
+	}
+	if report.Kind != "adapter_compatibility_report" || report.Skill != "repo.analyze_test_failures.remote" {
+		t.Fatalf("unexpected compatibility report identity: %#v", report)
+	}
+	var sawOpenAI bool
+	for _, adapter := range report.Adapters {
+		if adapter.Name == "openai-analyze" {
+			sawOpenAI = true
+			if !adapter.Compatible || adapter.Transport != "remote" || adapter.ErrorClass != "" {
+				t.Fatalf("unexpected openai compatibility: %#v", adapter)
+			}
+		}
+	}
+	if !sawOpenAI {
+		t.Fatalf("compatibility report missing openai adapter: %#v", report.Adapters)
+	}
+}
+
+func TestCLIAdaptersCompatibleAcceptsRegistryReference(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "repo.demo_fix")
+	artifact := filepath.Join(root, "repo.demo_fix.agenix")
+	registry := filepath.Join(root, "registry")
+	if out, err := exec.Command("go", "run", ".", "init", "skill", "repo.demo_fix", "--template", "repo-fix-test-failure", "-o", skillDir).CombinedOutput(); err != nil {
+		t.Fatalf("init skill failed: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("go", "run", ".", "build", skillDir, "-o", artifact).CombinedOutput(); err != nil {
+		t.Fatalf("build failed: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("go", "run", ".", "publish", artifact, "--registry", registry).CombinedOutput(); err != nil {
+		t.Fatalf("publish failed: %v\n%s", err, out)
+	}
+	if err := os.RemoveAll(skillDir); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := exec.Command("go", "run", ".", "adapters", "compatible", "repo.demo_fix@0.1.0", "--registry", registry).CombinedOutput()
+	if err != nil {
+		t.Fatalf("adapters compatible registry ref failed: %v\n%s", err, out)
+	}
+	text := string(out)
+	if !strings.Contains(text, "skill=repo.demo_fix") || !strings.Contains(text, "adapter=repo-fix-test-failure-template compatible=true") {
+		t.Fatalf("unexpected registry compatibility output: %s", text)
 	}
 }
 

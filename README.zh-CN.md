@@ -82,6 +82,7 @@ Agenix 定义了五层：
 - [v0.1.0 Release Notes](docs/releases/v0.1.0.md) / [中文](docs/releases/v0.1.0.zh-CN.md)
 - [v0.2.0 Release Notes](docs/releases/v0.2.0.md) / [中文](docs/releases/v0.2.0.zh-CN.md)
 - [v0.2.0 Plan](docs/releases/v0.2.0-plan.md) / [中文](docs/releases/v0.2.0-plan.zh-CN.md)
+- [v0.3.0 Plan](docs/releases/v0.3.0-plan.md) / [中文](docs/releases/v0.3.0-plan.zh-CN.md)
 
 教程：
 
@@ -147,6 +148,19 @@ go run ./cmd/agenix validate /tmp/fix-report.json
 
 `pytest` 命令在 `check` 前应该失败。模板 adapter 随后会通过 runtime 的 `fs.write`
 工具修复 `fixture/mathlib.py`，并在 verifier 通过后把 changed file 写进 check report。
+
+在运行 skill 前发现内置 adapter 并做 compatibility preflight：
+
+```bash
+go run ./cmd/agenix adapters
+go run ./cmd/agenix adapters --json
+go run ./cmd/agenix adapters compatible examples/repo.fix_test_failure/manifest.yaml
+go run ./cmd/agenix adapters compatible examples/repo.analyze_test_failures.remote/manifest.yaml --json
+```
+
+Compatibility preflight 是 metadata-only。它会在执行前检查 adapter skill support、
+capability requirements 和 remote-network policy；不会调用 provider、执行工具、运行
+verifier 或修改 workspace。
 
 在仓库根目录运行 canonical demo：
 
