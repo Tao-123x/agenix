@@ -2,6 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 **Portable runtime for reusable, verifiable, cross-model agent skills.**
 
 > Docker made software portable.
@@ -387,6 +389,10 @@ PRs should be oriented around:
 - enforcement of policy (less agent chaos)
 - verification and replay (less trust)
 - cross‑OS portability (less platform assumptions)
+
+## License
+
+Agenix is released under the [MIT License](LICENSE).
 
 ---
 

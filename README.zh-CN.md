@@ -2,6 +2,8 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 **面向可复用、可验证、跨模型 agent skill 的可移植 runtime。**
 
 > Docker 让软件具备可移植性。  
@@ -362,6 +364,10 @@ PR 应该优先围绕这些方向：
 - 更严的 policy 执行，更少 agent 混乱
 - 更完整的验证与回放，更少口头信任
 - 更好的跨 OS 可移植性，更少平台假设
+
+## License
+
+Agenix 使用 [MIT License](LICENSE) 发布。
 
 ---
 
